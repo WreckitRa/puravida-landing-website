@@ -24,6 +24,10 @@ const APPLE_APP_STORE_WEB_URL =
  *
  * Note: iOS deep links (itms-apps://) work best in Safari on iOS devices.
  * Other browsers may not support the protocol handler.
+ *
+ * Note: Next.js may show a deprecation warning about "middleware" vs "proxy".
+ * This is the correct implementation for Next.js 16. The "proxy" feature
+ * mentioned in the warning may be for a future version.
  */
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;

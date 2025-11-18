@@ -7,6 +7,7 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
 ### Option 1: Deploy via Vercel Dashboard (5 minutes)
 
 1. **Push your code to GitHub**
+
    ```bash
    git add .
    git commit -m "Ready for deployment"
@@ -14,14 +15,17 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
    ```
 
 2. **Go to [vercel.com](https://vercel.com)**
+
    - Sign up/login with your GitHub account
 
 3. **Import your repository**
+
    - Click "Add New Project"
    - Select your `puravida-new-website` repository
    - Click "Import"
 
 4. **Configure Environment Variables**
+
    - In the project settings, go to "Environment Variables"
    - Add the following:
      ```
@@ -29,6 +33,7 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
      NEXT_PUBLIC_SITE_URL=https://your-domain.com
      NEXT_PUBLIC_API_URL=https://api.puravida.events
      ```
+   - ⚠️ **IMPORTANT**: `NEXT_PUBLIC_API_URL` must use `https://` (not `http://`) to prevent mixed-content errors. The code will automatically convert HTTP to HTTPS, but it's best to set it correctly.
    - (Optional) Add app store URLs if different from defaults:
      ```
      NEXT_PUBLIC_GOOGLE_PLAY_URL=https://play.google.com/...
@@ -37,6 +42,7 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
      ```
 
 5. **Deploy!**
+
    - Click "Deploy"
    - Vercel will automatically:
      - Build your app
@@ -52,19 +58,23 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
 ### Option 2: Deploy via Vercel CLI (3 minutes)
 
 1. **Install Vercel CLI**
+
    ```bash
    npm i -g vercel
    ```
 
 2. **Login to Vercel**
+
    ```bash
    vercel login
    ```
 
 3. **Deploy**
+
    ```bash
    vercel
    ```
+
    - Follow the prompts
    - When asked about environment variables, add them or configure later in dashboard
 
@@ -77,13 +87,14 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
 
 Make sure to set these in Vercel Dashboard → Settings → Environment Variables:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 ID | `G-XXXXXXXXXX` |
-| `NEXT_PUBLIC_SITE_URL` | Your production URL | `https://puravida.com` |
-| `NEXT_PUBLIC_API_URL` | Backend API URL | `https://api.puravida.events` |
+| Variable                        | Description                      | Example                       |
+| ------------------------------- | -------------------------------- | ----------------------------- |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 ID            | `G-XXXXXXXXXX`                |
+| `NEXT_PUBLIC_SITE_URL`          | Your production URL              | `https://puravida.com`        |
+| `NEXT_PUBLIC_API_URL`           | Backend API URL (must use HTTPS) | `https://api.puravida.events` |
 
 **Optional:**
+
 - `NEXT_PUBLIC_GOOGLE_PLAY_URL` - Google Play Store URL
 - `NEXT_PUBLIC_APPLE_APP_STORE_URL` - Apple App Store web URL
 - `NEXT_PUBLIC_APPLE_APP_STORE_DEEP_LINK` - Apple App Store deep link
@@ -148,4 +159,3 @@ vercel --prod
 ```
 
 That's it! Your app will be live in ~2 minutes.
-

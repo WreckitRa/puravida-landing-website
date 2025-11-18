@@ -482,30 +482,30 @@ export default function OnboardingPage() {
         <div className="min-h-screen bg-black relative overflow-hidden">
           {/* Animated background elements */}
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-20 left-10 w-72 h-72 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
+            <div className="absolute top-20 left-10 w-48 h-48 md:w-72 md:h-72 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
             <div
-              className="absolute top-40 right-10 w-72 h-72 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+              className="absolute top-40 right-10 w-48 h-48 md:w-72 md:h-72 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
               style={{ animationDelay: "1s" }}
             ></div>
             <div
-              className="absolute -bottom-8 left-1/2 w-72 h-72 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+              className="absolute -bottom-8 left-1/2 w-48 h-48 md:w-72 md:h-72 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
               style={{ animationDelay: "2s" }}
             ></div>
           </div>
 
           <div
-            className={`relative z-10 h-screen flex flex-col lg:flex-row transition-all duration-500 ${
+            className={`relative z-10 min-h-screen flex flex-col lg:flex-row lg:h-screen transition-all duration-500 ${
               isAnimating
                 ? "opacity-0 translate-y-4"
                 : "opacity-100 translate-y-0"
             }`}
           >
             {/* Left Section - Subscribe to the good life, Benefits, Partners */}
-            <div className="flex-1 flex flex-col px-4 py-6 lg:py-8 lg:border-r border-white/10 overflow-hidden">
-              <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full space-y-4 lg:space-y-6">
+            <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 sm:py-8 lg:py-8 lg:border-r border-white/10 overflow-y-auto">
+              <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full space-y-4 sm:space-y-5 lg:space-y-6 py-4 sm:py-6">
                 {/* Hero Title */}
                 <div className="text-center animate-fade-in">
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight px-2">
                     Subscribe to the
                     <br />
                     <span className="text-white">good life!</span>
@@ -514,15 +514,15 @@ export default function OnboardingPage() {
 
                 {/* Benefits Grid - Compact */}
                 <div
-                  className="grid grid-cols-1 gap-3 animate-fade-in"
+                  className="grid grid-cols-1 gap-3 sm:gap-4 animate-fade-in"
                   style={{ animationDelay: "0.1s" }}
                 >
                   {/* Guest List Benefit */}
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all duration-300">
-                    <div className="flex items-start gap-3">
-                      <div className="text-2xl">🎫</div>
-                      <div className="flex-1">
-                        <h3 className="text-base font-bold text-white mb-1">
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:bg-white/10 transition-all duration-300">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="text-xl sm:text-2xl flex-shrink-0">🎫</div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm sm:text-base font-bold text-white mb-1">
                           GUEST LIST
                         </h3>
                         <p className="text-white/80 text-xs leading-relaxed mb-0.5">
@@ -536,11 +536,11 @@ export default function OnboardingPage() {
                   </div>
 
                   {/* Priority Bookings Benefit */}
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all duration-300">
-                    <div className="flex items-start gap-3">
-                      <div className="text-2xl">⭐</div>
-                      <div className="flex-1">
-                        <h3 className="text-base font-bold text-white mb-1">
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:bg-white/10 transition-all duration-300">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="text-xl sm:text-2xl flex-shrink-0">⭐</div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm sm:text-base font-bold text-white mb-1">
                           PRIORITY BOOKINGS & DISCOUNTS
                         </h3>
                         <p className="text-white/80 text-xs leading-relaxed mb-0.5">
@@ -554,11 +554,11 @@ export default function OnboardingPage() {
                   </div>
 
                   {/* After-Parties Benefit */}
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all duration-300">
-                    <div className="flex items-start gap-3">
-                      <div className="text-2xl">🎉</div>
-                      <div className="flex-1">
-                        <h3 className="text-base font-bold text-white mb-1">
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:bg-white/10 transition-all duration-300">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="text-xl sm:text-2xl flex-shrink-0">🎉</div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm sm:text-base font-bold text-white mb-1">
                           AFTER-PARTIES
                         </h3>
                         <p className="text-white/80 text-xs leading-relaxed">
@@ -574,14 +574,14 @@ export default function OnboardingPage() {
                   className="animate-fade-in"
                   style={{ animationDelay: "0.2s" }}
                 >
-                  <h3 className="text-lg font-bold text-white text-center mb-3">
+                  <h3 className="text-base sm:text-lg font-bold text-white text-center mb-3 sm:mb-4">
                     Our Partners
                   </h3>
-                  <div className="flex flex-wrap items-center justify-center gap-3">
+                  <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
                     {partners.map((partner, index) => (
                       <div
                         key={index}
-                        className="flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-all duration-300"
+                        className="flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-white/5 border border-white/10 rounded-lg p-2 sm:p-3 hover:bg-white/10 transition-all duration-300"
                       >
                         <img
                           src={partner.logo}
@@ -596,36 +596,36 @@ export default function OnboardingPage() {
             </div>
 
             {/* Right Section - Eligibility CTA + Events */}
-            <div className="flex-1 flex flex-col px-4 py-6 lg:py-8 overflow-hidden">
-              <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full space-y-4 lg:space-y-6">
+            <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 sm:py-8 lg:py-8 overflow-y-auto">
+              <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full space-y-4 sm:space-y-5 lg:space-y-6 py-4 sm:py-6">
                 {/* Eligibility CTA */}
-                <div className="text-center space-y-4 animate-bounce-in">
-                  <div className="space-y-4">
+                <div className="text-center space-y-3 sm:space-y-4 animate-bounce-in">
+                  <div className="space-y-3 sm:space-y-4">
                     <div className="inline-block">
-                      <span className="text-5xl">🎉</span>
+                      <span className="text-4xl sm:text-5xl">🎉</span>
                     </div>
-                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight px-2">
                       Ready to join Dubai's
                       <br />
                       inner circle?
                     </h1>
-                    <p className="text-lg md:text-xl text-white/70 font-medium">
+                    <p className="text-base sm:text-lg md:text-xl text-white/70 font-medium px-2">
                       Let's see if you're a fit! This takes just 2 minutes ⚡
                     </p>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3 px-2">
                     <button
                       onClick={() => {
                         trackButtonClick("Hero CTA", 0, "hero");
                         handleNext();
                       }}
-                      className="group bg-white text-black px-10 py-4 text-base font-bold tracking-wide hover:bg-gray-100 transition-all duration-300 rounded-2xl hover:scale-105 hover:shadow-2xl active:scale-100 relative overflow-hidden w-full"
+                      className="group bg-white text-black px-6 sm:px-10 py-3 sm:py-4 text-sm sm:text-base font-bold tracking-wide hover:bg-gray-100 transition-all duration-300 rounded-2xl hover:scale-105 hover:shadow-2xl active:scale-100 relative overflow-hidden w-full"
                     >
                       <span className="relative z-10 flex items-center justify-center gap-2">
                         Check Your Eligibility 🚀
                         <svg
-                          className="w-5 h-5 transition-transform group-hover:translate-x-1"
+                          className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -641,7 +641,7 @@ export default function OnboardingPage() {
                       <span className="absolute inset-0 bg-gradient-to-r from-transparent via-black/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                     </button>
 
-                    <div className="flex items-center justify-center gap-2 text-white/60 text-xs font-medium">
+                    <div className="flex items-center justify-center gap-1.5 sm:gap-2 text-white/60 text-xs font-medium flex-wrap">
                       <div className="flex items-center gap-1">
                         <span>⚡</span>
                         <span>2 min</span>
@@ -665,19 +665,19 @@ export default function OnboardingPage() {
                   className="animate-fade-in"
                   style={{ animationDelay: "0.3s" }}
                 >
-                  <h3 className="text-lg font-bold text-white text-center mb-3">
+                  <h3 className="text-base sm:text-lg font-bold text-white text-center mb-3 sm:mb-4">
                     Upcoming Events
                   </h3>
-                  <div className="relative overflow-hidden">
+                  <div className="relative overflow-hidden -mx-4 sm:mx-0">
                     <div
-                      className="flex gap-2 animate-scroll-horizontal"
+                      className="flex gap-2 sm:gap-3 animate-scroll-horizontal"
                       style={{ width: "fit-content" }}
                     >
                       {/* First set */}
                       {eventCreatives.map((event, index) => (
                         <div
                           key={`first-${index}`}
-                          className="flex-shrink-0 w-32 h-52 md:w-36 md:h-60 bg-white/5 border border-white/10 rounded-lg overflow-hidden"
+                          className="flex-shrink-0 w-28 h-44 sm:w-32 sm:h-52 md:w-36 md:h-60 bg-white/5 border border-white/10 rounded-lg overflow-hidden"
                         >
                           {event.type === "video" ? (
                             <video
@@ -704,7 +704,7 @@ export default function OnboardingPage() {
                       {eventCreatives.map((event, index) => (
                         <div
                           key={`second-${index}`}
-                          className="flex-shrink-0 w-32 h-52 md:w-36 md:h-60 bg-white/5 border border-white/10 rounded-lg overflow-hidden"
+                          className="flex-shrink-0 w-28 h-44 sm:w-32 sm:h-52 md:w-36 md:h-60 bg-white/5 border border-white/10 rounded-lg overflow-hidden"
                         >
                           {event.type === "video" ? (
                             <video

@@ -1,7 +1,23 @@
 // API utility functions
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://api.puravida.events";
+/**
+ * Get API base URL and ensure it uses HTTPS to prevent mixed-content errors
+ */
+function getApiBaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL || "https://api.puravida.events";
+  
+  // Force HTTPS if HTTP is detected (prevents mixed-content errors)
+  if (url.startsWith("http://")) {
+    console.warn(
+      "API URL uses HTTP, converting to HTTPS to prevent mixed-content errors"
+    );
+    return url.replace("http://", "https://");
+  }
+  
+  return url;
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface OnboardingSubmissionData {
   // Personal Information
