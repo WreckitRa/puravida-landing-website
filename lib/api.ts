@@ -5,7 +5,7 @@
  */
 function getApiBaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_API_URL || "https://api.puravida.events";
-  
+
   // Force HTTPS if HTTP is detected (prevents mixed-content errors)
   if (url.startsWith("http://")) {
     console.warn(
@@ -13,7 +13,7 @@ function getApiBaseUrl(): string {
     );
     return url.replace("http://", "https://");
   }
-  
+
   return url;
 }
 
@@ -241,6 +241,85 @@ export async function createUser(
     };
   } catch (error) {
     console.error("API Error creating user:", error);
+    return {
+      success: false,
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Network error. Please try again.",
+      },
+    };
+  }
+}
+
+export interface CreateManualUserData {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  country_id: number;
+  email?: string;
+  instagram_handle: string;
+  dob?: string;
+  address?: string;
+  gender: string; // "1" for Man, "2" for Woman
+  invity_number?: string;
+}
+
+export interface CreateManualUserResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    id?: number;
+    [key: string]: any;
+  };
+  error?: {
+    code: string;
+    message: string;
+    details?: Array<{
+      field: string;
+      message: string;
+    }>;
+  };
+}
+
+/**
+ * Create manual user (legacy endpoint for old onboarding flow)
+ * This matches the old /api/create-manual-user endpoint
+ */
+export async function createManualUser(
+  data: CreateManualUserData
+): Promise<CreateManualUserResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/create-manual-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result: CreateManualUserResponse = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || {
+          code: "UNKNOWN_ERROR",
+          message: result.message || "Failed to create user",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      message: result.message || "User created successfully",
+      data: result.data,
+    };
+  } catch (error) {
+    console.error("API Error creating manual user:", error);
     return {
       success: false,
       error: {

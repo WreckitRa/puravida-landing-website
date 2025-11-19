@@ -4,6 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { trackButtonClick, trackConversion } from "@/lib/analytics";
+import {
+  getInviteData,
+  getApiData,
+  getWhoInvited,
+  encodeBase64,
+} from "@/lib/storage";
+import Header from "@/components/Header";
 
 interface UserData {
   first_name: string;
@@ -35,22 +42,19 @@ export default function CongratulationPage() {
   const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
-    // Load data from localStorage
+    // Load data from localStorage with backward compatibility
     try {
-      const apiDataStr = localStorage.getItem("apiData");
-      const inviteStr = localStorage.getItem("invite");
-
-      if (apiDataStr) {
-        const { data } = JSON.parse(apiDataStr);
-        setUserData(data);
+      const apiData = getApiData();
+      if (apiData?.data) {
+        setUserData(apiData.data);
       } else {
         // Use mock data if localStorage is empty
         console.log("📝 Using mock data for testing");
         setUserData(MOCK_USER_DATA);
       }
 
-      if (inviteStr) {
-        const invite = JSON.parse(inviteStr);
+      const invite = getInviteData();
+      if (invite) {
         setInviteData(invite);
       } else {
         // Use mock invite data if localStorage is empty
@@ -66,33 +70,35 @@ export default function CongratulationPage() {
     }
   }, []);
 
-  const encodeBase64 = (str: string): string => {
-    if (typeof window === "undefined") return "";
-    return btoa(unescape(encodeURIComponent(str)));
-  };
-
   const handleShare = async () => {
     if (!userData) return;
 
     setIsSharing(true);
-    trackButtonClick("Invite & Move up", 0, "share");
+    trackButtonClick("Invite & Move Up", 0, "share");
 
     try {
-      // Encode both invite and phone
+      // Encode both invite and phone (matching old v1 behavior)
       const encodedInvite = encodeBase64(userData.first_name);
       const encodedPhone = encodeBase64(userData.phone);
 
       const siteUrl =
         process.env.NEXT_PUBLIC_SITE_URL || "https://puravida.com";
-      const shareUrl = `${siteUrl}/onboarding?invite=${encodedInvite}|${encodedPhone}`;
+      // Old page used home.html, which is the landing page (/)
+      const shareUrl = `${siteUrl}/?invite=${encodedInvite}|${encodedPhone}`;
 
+      // Personalized invitation message
       const shareData = {
-        title: "PuraVida Invitation",
-        text: `Hey… I just added myself to the guestlist of this new place called Euphoria… it's this Friday, the 11th April! 
+        title: "Join PuraVida - Dubai's Exclusive Nightlife Community",
+        text: `Hey! 👋
 
-It's a jungle beach party at La Maison de la Plage… right next to SurfClub on the Palm. The DJs are really good… check out their lineup: ABLA, HOOMANCE b2b MILI and BAKH. 
+${userData.first_name} invited you to join PuraVida - Dubai's most exclusive nightlife community! 🎉
 
-Here's the guestlist link:`,
+Get access to:
+✨ Guest lists at 10+ top nightclubs
+⭐ Priority bookings & up to 25% discounts at Dubai's best restaurants
+🎉 Exclusive after-parties
+
+Join me and unlock Dubai's inner circle! Use my invite link to get started:`,
         url: shareUrl,
       };
 
@@ -142,10 +148,6 @@ Here's the guestlist link:`,
     );
   }
 
-  const whoInvited = inviteData?.invite
-    ? decodeURIComponent(inviteData.invite)
-    : "PuraVida";
-
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
       {/* Animated background elements */}
@@ -163,31 +165,7 @@ Here's the guestlist link:`,
 
       <div className="max-w-3xl w-full space-y-8 relative z-10">
         {/* Header with logo and invite banner */}
-        <div className="flex justify-between items-center mb-8 animate-slide-in-right">
-          <Link
-            href="/"
-            className="text-white text-2xl font-bold hover:opacity-80 transition-opacity"
-          >
-            PuraVida
-          </Link>
-          <div className="hidden sm:block">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2">
-              <span className="text-white text-sm font-bold">
-                <span className="text-red-400">{whoInvited}</span> has invited
-                you
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile invite banner */}
-        <div className="sm:hidden mb-6 animate-slide-in-right">
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 text-center">
-            <span className="text-white text-sm font-bold">
-              <span className="text-red-400">{whoInvited}</span> has invited you
-            </span>
-          </div>
-        </div>
+        <Header className="mb-8" />
 
         {/* Success Icon */}
         <div className="flex justify-center animate-bounce-in">
@@ -247,13 +225,15 @@ Here's the guestlist link:`,
             {/* Waitlist Position */}
             <div className="space-y-3 py-6">
               <p className="text-lg md:text-xl text-gray-700 font-medium">
-                You&apos;re currently at{" "}
+                You&apos;re currently at position{" "}
                 <span className="text-black font-bold text-2xl md:text-3xl">
                   #{userData.wait_list_count}
                 </span>
               </p>
               <p className="text-base md:text-lg text-gray-600 font-medium">
-                For every person you invite, you jump 100 spots on the list
+                Each friend you invite moves you up{" "}
+                <span className="font-bold text-black">100 spots</span> in the
+                queue. The more you share, the faster you get access! 🚀
               </p>
             </div>
 
@@ -291,7 +271,7 @@ Here's the guestlist link:`,
                     </>
                   ) : (
                     <>
-                      Invite & Move up 🚀
+                      Invite Friends & Move Up 🚀
                       <svg
                         className="w-6 h-6 transition-transform group-hover:translate-x-1"
                         fill="none"
@@ -316,18 +296,30 @@ Here's the guestlist link:`,
             {shareResult && (
               <div className="pt-4 animate-fade-in">
                 {shareResult === "success" && (
-                  <p className="text-green-600 font-medium">
-                    Shared successfully! 🎉
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-green-600 font-medium">
+                      Invitation shared successfully! 🎉
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      When your friend joins using your link, you&apos;ll
+                      automatically move up 100 spots in the queue!
+                    </p>
+                  </div>
                 )}
                 {shareResult === "copied" && (
-                  <p className="text-green-600 font-medium">
-                    Link copied to clipboard! 📋
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-green-600 font-medium">
+                      Invite link copied to clipboard! 📋
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Share it with your friends via any messaging app. Each
+                      friend who joins moves you up 100 spots!
+                    </p>
+                  </div>
                 )}
                 {shareResult === "error" && (
                   <p className="text-red-600 font-medium">
-                    Error sharing. Please try again.
+                    Unable to share. Please try copying the link manually.
                   </p>
                 )}
                 {shareResult === "success" && (

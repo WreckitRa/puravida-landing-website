@@ -6,23 +6,43 @@ import Link from "next/link";
 import Image from "next/image";
 import { trackButtonClick, trackPageView } from "@/lib/analytics";
 import StructuredData from "@/components/StructuredData";
+import { decodeAndStoreInviteFromUrl, getWhoInvited } from "@/lib/storage";
+import { initAppLinking } from "@/lib/app-linking";
+import ContactModal from "@/components/ContactModal";
 
 function LandingPageContent() {
   const searchParams = useSearchParams();
   const [isVisible, setIsVisible] = useState(false);
-
-  // Get invitation parameter from URL
-  const whoInvited = searchParams.get("invite");
+  const [whoInvited, setWhoInvited] = useState<string | null>(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   useEffect(() => {
+    // Initialize app deep linking (for mobile app redirects)
+    initAppLinking();
+
     // Track page view
     trackPageView("/");
+
+    // Handle invite parameter from URL (base64 encoded format: invite=base64Name|base64Phone)
+    const encodedInvite = searchParams.get("invite");
+    if (encodedInvite) {
+      const { invite } = decodeAndStoreInviteFromUrl(encodedInvite);
+      if (invite) {
+        setWhoInvited(invite);
+      }
+    } else {
+      // If no invite in URL, check localStorage
+      const storedInvite = getWhoInvited();
+      if (storedInvite !== "PuraVida") {
+        setWhoInvited(storedInvite);
+      }
+    }
 
     // Fade in animation - defer to avoid synchronous setState
     requestAnimationFrame(() => {
       setIsVisible(true);
     });
-  }, []);
+  }, [searchParams]);
 
   // Partner logos
   const partners = [
@@ -748,36 +768,46 @@ function LandingPageContent() {
                 >
                   Terms of Service
                 </Link>
-                <a
-                  href="#"
+                <Link
+                  href="/cookie-policy"
                   className="text-white/60 hover:text-white transition-colors text-sm font-medium"
                   onClick={() => trackButtonClick("Cookie Policy", 0, "footer")}
                 >
                   Cookie Policy
-                </a>
-                <a
-                  href="#"
-                  className="text-white/60 hover:text-white transition-colors text-sm font-medium"
-                  onClick={() => trackButtonClick("Contact Us", 0, "footer")}
+                </Link>
+                <button
+                  onClick={() => {
+                    trackButtonClick("Contact Us", 0, "footer");
+                    setIsContactModalOpen(true);
+                  }}
+                  className="text-white/60 hover:text-white transition-colors text-sm font-medium cursor-pointer"
                 >
                   Contact Us
-                </a>
+                </button>
               </nav>
             </div>
           </div>
         </footer>
       </div>
+
+      {/* Contact Modal */}
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </>
   );
 }
 
 export default function LandingPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-lg">Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <div className="text-white text-lg">Loading...</div>
+        </div>
+      }
+    >
       <LandingPageContent />
     </Suspense>
   );

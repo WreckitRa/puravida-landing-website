@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   trackStepView,
   trackStepComplete,
@@ -23,10 +24,16 @@ import {
   type OnboardingSubmissionData,
   getCountries,
   type Country,
-  createUser,
-  type CreateUserData,
 } from "@/lib/api";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
+import { decodeAndStoreInviteFromUrl } from "@/lib/storage";
+import { initAppLinking } from "@/lib/app-linking";
+import {
+  validateInstagramHandle,
+  validatePhoneNumber,
+  getInvityNumber,
+} from "@/lib/validation";
+import { createManualUser } from "@/lib/api";
 
 type FormData = {
   // Step 1
@@ -80,7 +87,8 @@ const DUBAI_PLACES = [
   "Other",
 ];
 
-export default function OnboardingPage() {
+function OnboardingPageContent() {
+  const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const stepStartTime = useRef<number>(Date.now());
@@ -107,6 +115,18 @@ export default function OnboardingPage() {
     nightlifeFrequency: "",
     idealNightOut: "",
   });
+
+  // Initialize app deep linking and handle invite parameter from URL
+  useEffect(() => {
+    // Initialize app deep linking (for mobile app redirects)
+    initAppLinking();
+
+    // Handle invite parameter from URL (base64 encoded format: invite=base64Name|base64Phone)
+    const encodedInvite = searchParams.get("invite");
+    if (encodedInvite) {
+      decodeAndStoreInviteFromUrl(encodedInvite);
+    }
+  }, [searchParams]);
 
   // Initialize attribution tracking on mount
   useEffect(() => {
@@ -240,42 +260,39 @@ export default function OnboardingPage() {
           const first_name = nameParts[0] || "";
           const last_name = nameParts.slice(1).join(" ") || "";
 
-          // Combine phone code and mobile number
-          const phone =
-            formData.phoneCode && formData.mobile
-              ? `+${formData.phoneCode}${formData.mobile}`
-              : "";
-
           // Clean Instagram handle (remove @ if present)
           const instagram_handle = formData.instagram.replace(/^@+/, "");
 
           // Convert nationality string to country_id number
           const country_id = parseInt(formData.nationality, 10);
 
-          // Prepare user data
-          const userData: CreateUserData = {
+          // Convert gender to old format ("Male" -> "1", "Female" -> "2")
+          let genderValue = formData.gender;
+          if (formData.gender === "Male") {
+            genderValue = "1";
+          } else if (formData.gender === "Female") {
+            genderValue = "2";
+          }
+
+          // Get invity_number from localStorage if available
+          const invity_number = getInvityNumber();
+
+          // Create manual user
+          const manualUserData = {
             first_name,
             last_name,
-            email: formData.email || undefined,
-            phone,
-            gender: formData.gender,
-            status: 0, // 0 = pending/onboarding, adjust as needed
+            phone: formData.mobile, // Just the number without country code for manual endpoint
             country_id,
+            email: formData.email || undefined,
             instagram_handle,
-            // image is optional, not included for now
+            gender: genderValue, // Use "1" or "2" format
+            invity_number: invity_number || undefined,
           };
 
-          // Create user in database
-          const result = await createUser(userData);
-
-          if (!result.success) {
-            console.error("Failed to create user:", result.error);
-            // Optionally show error to user, but continue with flow
-            // You can uncomment the alert if you want to show errors
-            // alert(`Failed to create user: ${result.error?.message || 'Please try again'}`);
-          } else {
-            console.log("User created successfully:", result.data);
-          }
+          // Note: We don't await this to avoid blocking the flow
+          createManualUser(manualUserData).catch((err) => {
+            console.log("Manual user creation failed:", err);
+          });
         } catch (error) {
           console.error("Error creating user:", error);
           // Continue with flow even if user creation fails
@@ -292,7 +309,9 @@ export default function OnboardingPage() {
 
   const handleSubmit = async () => {
     // Track form submission
-    const timeToComplete = (Date.now() - formStartTime.current) / 1000;
+    const timeToComplete = Math.floor(
+      (Date.now() - formStartTime.current) / 1000
+    );
 
     // Get latest attribution data
     const currentAttribution = getAttribution();
@@ -340,7 +359,12 @@ export default function OnboardingPage() {
       console.log("Form submitted successfully:", result);
 
       setTimeout(() => {
-        setCurrentStep(10);
+        // Check if nationality requires review (Indian, Pakistani, Egyptian)
+        if (requiresReview()) {
+          setCurrentStep(11); // Review page with payment plans
+        } else {
+          setCurrentStep(10); // Standard confirmation
+        }
         setIsAnimating(false);
       }, 300);
     } else {
@@ -356,24 +380,90 @@ export default function OnboardingPage() {
   };
 
   const isStep1Valid = () => {
-    return (
-      formData.fullName &&
-      formData.gender &&
-      formData.age &&
-      formData.nationality &&
-      formData.phoneCode &&
-      formData.mobile &&
-      formData.instagram
+    // Basic required field checks
+    if (
+      !formData.fullName ||
+      !formData.gender ||
+      !formData.age ||
+      !formData.nationality ||
+      !formData.phoneCode ||
+      !formData.mobile ||
+      !formData.email ||
+      !formData.instagram
+    ) {
+      return false;
+    }
+
+    // Validate full name length (2-100 characters)
+    const fullNameLength = formData.fullName.trim().length;
+    if (fullNameLength < 2 || fullNameLength > 100) {
+      return false;
+    }
+
+    // Validate age (18-120)
+    const ageNum = parseInt(formData.age, 10);
+    if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
+      return false;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      return false;
+    }
+
+    // Validate phone number format
+    const phoneValidation = validatePhoneNumber(
+      formData.mobile,
+      `+${formData.phoneCode}`
     );
+    if (!phoneValidation.isValid) {
+      return false;
+    }
+
+    // Validate Instagram handle
+    const instagramValidation = validateInstagramHandle(formData.instagram);
+    if (!instagramValidation.isValid) {
+      return false;
+    }
+
+    return true;
   };
 
   const isStep2aValid = () => formData.musicTaste.length > 0;
-  const isStep2bValid = () => !!formData.favoriteDJ;
+  const isStep2bValid = () => {
+    const djLength = formData.favoriteDJ.trim().length;
+    return djLength >= 2 && djLength <= 100;
+  };
   const isStep2cValid = () => formData.favoritePlacesDubai.length > 0;
-  const isStep2dValid = () => !!formData.festivalsBeenTo;
-  const isStep2eValid = () => !!formData.festivalsWantToGo;
+  const isStep2dValid = () => {
+    const festivalsLength = formData.festivalsBeenTo.trim().length;
+    return festivalsLength >= 2 && festivalsLength <= 500;
+  };
+  const isStep2eValid = () => {
+    const festivalsLength = formData.festivalsWantToGo.trim().length;
+    return festivalsLength >= 2 && festivalsLength <= 500;
+  };
   const isStep2fValid = () => !!formData.nightlifeFrequency;
-  const isStep2gValid = () => !!formData.idealNightOut;
+  const isStep2gValid = () => {
+    const length = formData.idealNightOut.trim().length;
+    return length >= 10 && length <= 1000;
+  };
+
+  // Check if user's nationality requires review
+  const requiresReview = () => {
+    if (!formData.nationality || countries.length === 0) return false;
+    const selectedCountry = countries.find(
+      (c) => c.id.toString() === formData.nationality
+    );
+    if (!selectedCountry) return false;
+    const countryName = selectedCountry.name.toLowerCase();
+    return (
+      countryName.includes("india") ||
+      countryName.includes("pakistan") ||
+      countryName.includes("egypt")
+    );
+  };
 
   const getProgress = () => {
     if (currentStep === 0) return 0;
@@ -520,7 +610,9 @@ export default function OnboardingPage() {
                   {/* Guest List Benefit */}
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:bg-white/10 transition-all duration-300">
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="text-xl sm:text-2xl flex-shrink-0">🎫</div>
+                      <div className="text-xl sm:text-2xl flex-shrink-0">
+                        🎫
+                      </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm sm:text-base font-bold text-white mb-1">
                           GUEST LIST
@@ -538,7 +630,9 @@ export default function OnboardingPage() {
                   {/* Priority Bookings Benefit */}
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:bg-white/10 transition-all duration-300">
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="text-xl sm:text-2xl flex-shrink-0">⭐</div>
+                      <div className="text-xl sm:text-2xl flex-shrink-0">
+                        ⭐
+                      </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm sm:text-base font-bold text-white mb-1">
                           PRIORITY BOOKINGS & DISCOUNTS
@@ -556,7 +650,9 @@ export default function OnboardingPage() {
                   {/* After-Parties Benefit */}
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 sm:p-4 hover:bg-white/10 transition-all duration-300">
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <div className="text-xl sm:text-2xl flex-shrink-0">🎉</div>
+                      <div className="text-xl sm:text-2xl flex-shrink-0">
+                        🎉
+                      </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm sm:text-base font-bold text-white mb-1">
                           AFTER-PARTIES
@@ -615,12 +711,13 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-2 sm:space-y-3 px-2">
+                    {/* Hide button on mobile - floating bottom button serves this purpose */}
                     <button
                       onClick={() => {
                         trackButtonClick("Hero CTA", 0, "hero");
                         handleNext();
                       }}
-                      className="group bg-white text-black px-6 sm:px-10 py-3 sm:py-4 text-sm sm:text-base font-bold tracking-wide hover:bg-gray-100 transition-all duration-300 rounded-2xl hover:scale-105 hover:shadow-2xl active:scale-100 relative overflow-hidden w-full"
+                      className="hidden lg:block group bg-white text-black px-6 sm:px-10 py-3 sm:py-4 text-sm sm:text-base font-bold tracking-wide hover:bg-gray-100 transition-all duration-300 rounded-2xl hover:scale-105 hover:shadow-2xl active:scale-100 relative overflow-hidden w-full"
                     >
                       <span className="relative z-10 flex items-center justify-center gap-2">
                         Check Your Eligibility 🚀
@@ -733,6 +830,41 @@ export default function OnboardingPage() {
               </div>
             </div>
           </div>
+
+          {/* Mobile Floating CTA Button - Always visible at bottom for high engagement */}
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 px-4 py-3 bg-gradient-to-t from-black via-black/95 to-transparent pointer-events-none">
+            <div className="max-w-md mx-auto pointer-events-auto">
+              <button
+                onClick={() => {
+                  trackButtonClick(
+                    "Hero CTA Mobile Floating",
+                    0,
+                    "hero-mobile-floating"
+                  );
+                  handleNext();
+                }}
+                className="group bg-white text-black w-full px-6 py-4 text-base font-bold tracking-wide hover:bg-gray-100 transition-all duration-300 rounded-2xl hover:scale-105 active:scale-100 shadow-2xl relative overflow-hidden"
+              >
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  Check Your Eligibility 🚀
+                  <svg
+                    className="w-5 h-5 transition-transform group-hover:translate-x-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                    />
+                  </svg>
+                </span>
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-black/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+              </button>
+            </div>
+          </div>
         </div>
       </>
     );
@@ -818,6 +950,8 @@ export default function OnboardingPage() {
                     }
                     className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
                     placeholder="Your name"
+                    minLength={2}
+                    maxLength={100}
                     required
                   />
                 </div>
@@ -835,6 +969,8 @@ export default function OnboardingPage() {
                     <option value="">Choose...</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
                   </select>
                 </div>
 
@@ -849,6 +985,7 @@ export default function OnboardingPage() {
                     className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
                     placeholder="25"
                     min="18"
+                    max="120"
                     required
                   />
                 </div>
@@ -905,7 +1042,12 @@ export default function OnboardingPage() {
                       onChange={(code) => {
                         updateFormData("phoneCode", code);
                         // Track selection
-                        trackSelection("phoneCode", `+${code}`, currentStep, true);
+                        trackSelection(
+                          "phoneCode",
+                          `+${code}`,
+                          currentStep,
+                          true
+                        );
                       }}
                       onFocus={() =>
                         trackFieldInteraction("phoneCode", currentStep, "focus")
@@ -945,7 +1087,7 @@ export default function OnboardingPage() {
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Email
+                    Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
@@ -958,7 +1100,9 @@ export default function OnboardingPage() {
                       trackFieldInteraction("email", currentStep, "blur")
                     }
                     className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
-                    placeholder="you@example.com (optional)"
+                    placeholder="you@example.com"
+                    maxLength={255}
+                    required
                   />
                 </div>
               </div>
@@ -982,6 +1126,7 @@ export default function OnboardingPage() {
                     }
                     className="w-full pl-10 pr-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
                     placeholder="username"
+                    maxLength={100}
                     required
                   />
                 </div>
@@ -1192,6 +1337,7 @@ export default function OnboardingPage() {
             onChange={(e) => updateFormData("musicTasteOther", e.target.value)}
             placeholder="What else? 🎶"
             className="w-full mt-3 px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl font-medium"
+            maxLength={100}
           />
         )}
         {formData.musicTaste.filter((g) => g !== "Other").length > 0 && (
@@ -1221,6 +1367,8 @@ export default function OnboardingPage() {
         onChange={(e) => updateFormData("favoriteDJ", e.target.value)}
         placeholder="e.g., David Guetta, Amelie Lens, Black Coffee..."
         className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl hover:border-gray-400 text-center text-lg font-bold"
+        minLength={2}
+        maxLength={100}
         required
       />,
       isStep2bValid
@@ -1269,6 +1417,7 @@ export default function OnboardingPage() {
             }
             placeholder="What's the spot? 🎉"
             className="w-full mt-3 px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl font-medium"
+            maxLength={100}
           />
         )}
         {formData.favoritePlacesDubai.filter((p) => p !== "Other").length >
@@ -1299,6 +1448,8 @@ export default function OnboardingPage() {
         rows={5}
         placeholder="e.g., Coachella 2023, Tomorrowland, Ultra Miami, Burning Man..."
         className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl resize-none hover:border-gray-400 text-base font-medium"
+        minLength={2}
+        maxLength={500}
         required
       />,
       isStep2dValid
@@ -1318,6 +1469,8 @@ export default function OnboardingPage() {
         rows={5}
         placeholder="e.g., Burning Man, Glastonbury, EDC Las Vegas, Sziget..."
         className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl resize-none hover:border-gray-400 text-base font-medium"
+        minLength={2}
+        maxLength={500}
         required
       />,
       isStep2eValid
@@ -1338,12 +1491,12 @@ export default function OnboardingPage() {
         required
       >
         <option value="">Choose your vibe...</option>
-        <option value="daily">Daily 🔥</option>
-        <option value="few-times-week">A few times a week</option>
-        <option value="weekly">Weekly</option>
-        <option value="few-times-month">A few times a month</option>
-        <option value="monthly">Monthly</option>
-        <option value="rarely">Rarely</option>
+        <option value="Daily">Daily 🔥</option>
+        <option value="3-4 times a week">3-4 times a week</option>
+        <option value="Weekly">Weekly</option>
+        <option value="2-3 times a month">2-3 times a month</option>
+        <option value="Monthly">Monthly</option>
+        <option value="Rarely">Rarely</option>
       </select>,
       isStep2fValid
     );
@@ -1351,19 +1504,57 @@ export default function OnboardingPage() {
 
   // Step 8: Ideal Night Out
   if (currentStep === 8) {
+    const idealNightOutLength = formData.idealNightOut.trim().length;
+    const minLength = 10;
+    const maxLength = 1000;
+    const isValid =
+      idealNightOutLength >= minLength && idealNightOutLength <= maxLength;
+
     return renderQuestionStep(
       8,
       "Describe your perfect night 🌟",
       "Paint us a picture! What's the vibe?",
       "✨",
-      <textarea
-        value={formData.idealNightOut}
-        onChange={(e) => updateFormData("idealNightOut", e.target.value)}
-        rows={6}
-        placeholder="Tell us about your perfect night... What makes it special? Who are you with? What's the vibe? Where are you?"
-        className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl resize-none hover:border-gray-400 text-base font-medium"
-        required
-      />,
+      <div className="space-y-3">
+        <textarea
+          value={formData.idealNightOut}
+          onChange={(e) => updateFormData("idealNightOut", e.target.value)}
+          rows={6}
+          placeholder="Tell us about your perfect night... What makes it special? Who are you with? What's the vibe? Where are you?"
+          className={`w-full px-6 py-5 border-2 bg-white text-black focus:outline-none focus:ring-4 transition-all duration-200 rounded-2xl resize-none text-base font-medium ${
+            idealNightOutLength > 0 && !isValid
+              ? "border-red-500 focus:border-red-500 focus:ring-red-200"
+              : "border-gray-300 focus:border-black focus:ring-gray-200 hover:border-gray-400"
+          }`}
+          minLength={10}
+          maxLength={1000}
+          required
+        />
+        <div className="flex items-center justify-between text-sm">
+          <div>
+            {idealNightOutLength > 0 && !isValid && (
+              <p className="text-red-500 font-medium">
+                {idealNightOutLength < minLength
+                  ? `Please write at least ${minLength} characters`
+                  : idealNightOutLength > maxLength
+                  ? `Maximum ${maxLength} characters allowed`
+                  : ""}
+              </p>
+            )}
+          </div>
+          <p
+            className={`font-medium ${
+              isValid
+                ? "text-gray-600"
+                : idealNightOutLength > 0
+                ? "text-red-500"
+                : "text-gray-400"
+            }`}
+          >
+            {idealNightOutLength}/{maxLength} characters
+          </p>
+        </div>
+      </div>,
       isStep2gValid
     );
   }
@@ -1520,5 +1711,203 @@ export default function OnboardingPage() {
     );
   }
 
+  // Step 11: Review Page with Payment Plans (for Indian, Pakistani, Egyptian)
+  if (currentStep === 11) {
+    const paymentPlans = [
+      {
+        name: "Annual",
+        price: "AED 2,999",
+        period: "per year",
+        savings: "Save 17%",
+        popular: false,
+        features: [
+          "Full membership access",
+          "Priority guest list",
+          "Exclusive events",
+          "24/7 concierge support",
+        ],
+      },
+      {
+        name: "Monthly",
+        price: "AED 299",
+        period: "per month",
+        savings: null,
+        popular: true,
+        features: [
+          "Full membership access",
+          "Priority guest list",
+          "Exclusive events",
+          "24/7 concierge support",
+        ],
+      },
+    ];
+
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0">
+          <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
+          <div
+            className="absolute bottom-20 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+            style={{ animationDelay: "1s" }}
+          ></div>
+        </div>
+
+        <div
+          className={`max-w-5xl w-full space-y-8 relative z-10 transition-all duration-700 ${
+            isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"
+          }`}
+        >
+          {/* Review Status Card */}
+          <div className="bg-white rounded-3xl p-8 md:p-10 shadow-2xl animate-bounce-in text-center">
+            <div className="space-y-4 mb-8">
+              <div className="text-6xl animate-bounce-in">🔍</div>
+              <h2 className="text-4xl md:text-5xl font-bold text-black leading-tight">
+                Your Profile is Under Review
+              </h2>
+              <div className="w-24 h-1 bg-black mx-auto rounded-full"></div>
+              <p className="text-xl md:text-2xl text-gray-700 font-medium max-w-2xl mx-auto">
+                We're carefully reviewing your application to ensure you're the
+                perfect fit for the PuraVida community.
+              </p>
+            </div>
+
+            {/* Fast Track Message */}
+            <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 mb-8 text-white">
+              <div className="flex items-start gap-4 max-w-3xl mx-auto">
+                <div className="text-4xl flex-shrink-0">⚡</div>
+                <div className="text-left space-y-2">
+                  <h3 className="text-2xl md:text-3xl font-bold">
+                    Fast-Track Your Review
+                  </h3>
+                  <p className="text-lg md:text-xl text-gray-200">
+                    Our team prioritizes paid memberships for faster review. If
+                    your application isn't accepted, we'll issue an immediate
+                    full refund—no questions asked.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Plans */}
+            <div className="space-y-6">
+              <h3 className="text-3xl md:text-4xl font-bold text-black mb-6">
+                Choose Your Membership Plan
+              </h3>
+              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                {paymentPlans.map((plan, index) => (
+                  <div
+                    key={plan.name}
+                    className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+                      plan.popular
+                        ? "border-black shadow-xl scale-105"
+                        : "border-gray-300"
+                    }`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    {plan.popular && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-2 rounded-full text-sm font-bold">
+                        MOST POPULAR
+                      </div>
+                    )}
+                    {plan.savings && (
+                      <div className="absolute -top-3 -right-3 bg-green-500 text-white px-4 py-2 rounded-full text-xs font-bold rotate-12 shadow-lg">
+                        {plan.savings}
+                      </div>
+                    )}
+                    <div className="space-y-6">
+                      <div>
+                        <h4 className="text-2xl font-bold text-black mb-2">
+                          {plan.name}
+                        </h4>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-4xl md:text-5xl font-bold text-black">
+                            {plan.price}
+                          </span>
+                          <span className="text-gray-600 font-medium">
+                            {plan.period}
+                          </span>
+                        </div>
+                      </div>
+                      <ul className="space-y-3 text-left">
+                        {plan.features.map((feature, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-center gap-3 text-gray-700"
+                          >
+                            <span className="text-green-500 text-xl">✓</span>
+                            <span className="font-medium">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${
+                          plan.popular
+                            ? "bg-black text-white hover:bg-gray-900 hover:scale-105"
+                            : "bg-gray-100 text-black hover:bg-gray-200"
+                        }`}
+                        onClick={() => {
+                          // TODO: Implement payment flow
+                          alert(
+                            `Payment integration coming soon for ${plan.name} plan`
+                          );
+                        }}
+                      >
+                        Select {plan.name} Plan
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Refund Policy */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="flex items-start gap-3 max-w-2xl mx-auto text-left">
+                <span className="text-2xl flex-shrink-0">🛡️</span>
+                <div className="space-y-2">
+                  <p className="text-sm font-bold text-gray-900">
+                    Money-Back Guarantee
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    If your application isn't accepted, we'll process a full
+                    refund immediately—typically within 24-48 hours. Your
+                    payment is completely risk-free.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Skip Option */}
+            <div className="mt-6">
+              <button
+                onClick={() => {
+                  setCurrentStep(10);
+                }}
+                className="text-gray-500 hover:text-gray-700 font-medium text-sm underline transition-colors"
+              >
+                Continue with standard review (no payment)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return null;
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <div className="text-white text-lg">Loading...</div>
+        </div>
+      }
+    >
+      <OnboardingPageContent />
+    </Suspense>
+  );
 }

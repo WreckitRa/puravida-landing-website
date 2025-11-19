@@ -68,7 +68,8 @@ export default function PhoneCodeSelector({
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const selectedCountry = COUNTRIES.find((c) => c.code === value) || COUNTRIES[0];
+  const selectedCountry =
+    COUNTRIES.find((c) => c.code === value) || COUNTRIES[0];
 
   const filteredCountries = COUNTRIES.filter(
     (country) =>
@@ -194,4 +195,3 @@ export default function PhoneCodeSelector({
     </div>
   );
 }
-
