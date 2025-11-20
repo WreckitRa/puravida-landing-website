@@ -1,17 +1,19 @@
 RewriteEngine On
 RewriteBase /
 
-# 1. If file exists, serve it
+# 0. Handle /app/invite manually
+RewriteRule ^app/invite$ /ihaveinvite.html [L,R=302]
+
+# 1. Serve file if exists
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
-# 2. If request matches a folder, try loading the .html file instead
-# ex: /terms-conditions -> terms-conditions.html
+# 2. Clean URL → .html
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteCond %{REQUEST_FILENAME}.html -f
 RewriteRule ^(.+?)/?$ $1.html [L]
 
-# 3. SPA fallback (only if no html file exists)
+# 3. SPA fallback
 RewriteCond %{REQUEST_FILENAME}.html !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
