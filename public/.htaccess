@@ -1,36 +1,54 @@
+# Disable directory listing
+Options -Indexes
+
+# Prevent Apache from automatically adding trailing slashes
+# This prevents "Forbidden" errors when reloading pages
+DirectorySlash Off
+
+# Prevent access to .htaccess file itself
+<FilesMatch "^\.ht">
+  Require all denied
+</FilesMatch>
+
 # Enable Rewrite Engine
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
+  # Redirect /app/invite to /ihaveinvite (for static export compatibility)
+  RewriteRule ^app/invite/?$ /ihaveinvite [R=301,L]
+
   # Handle Next.js App Router static export
-  # Next.js creates routes as: /route/index.html or /route.html
+  # Next.js creates routes as: /route/index.html
   
-  # If requesting a directory, try index.html in that directory
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} -d
+  # First, handle requests WITH trailing slash - try to serve index.html
+  # This prevents the "Forbidden" error when Apache tries to list directories
   RewriteCond %{REQUEST_URI} ^(.+)/$
+  RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{DOCUMENT_ROOT}%1/index.html -f
   RewriteRule ^(.+)/$ $1/index.html [L]
 
-  # If requesting without trailing slash, try directory/index.html
+  # If requesting a file that doesn't exist (without trailing slash), try adding /index.html
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_URI} !(.*)/$
   RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}/index.html -f
   RewriteRule ^(.*)$ $1/index.html [L]
 
-  # Fallback: try .html extension (for routes like /route.html)
+  # Fallback: try .html extension (for routes like /route.html if they exist)
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_URI} !(.*)/$
   RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.html -f
   RewriteRule ^(.*)$ $1.html [L]
 
-  # If still not found and has trailing slash, remove it and try again
+  # If route doesn't exist and has trailing slash, redirect to without trailing slash
+  # This prevents the "Forbidden" error when Apache tries to list a non-existent directory
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_URI} ^(.+)/$
+  RewriteCond %{DOCUMENT_ROOT}%1/index.html !-f
+  RewriteCond %{DOCUMENT_ROOT}%1.html !-f
   RewriteRule ^(.+)/$ $1 [R=301,L]
 </IfModule>
 
@@ -75,4 +93,3 @@
   AddType text/css css
   AddType image/svg+xml svg
 </IfModule>
-

@@ -266,7 +266,7 @@ function OnboardingPageContent() {
       const loadingMessages = [
         "Checking your vibe... 🔍",
         "Analyzing your party DNA... 🧬",
-        "Verifying your cool factor... �",
+        "Verifying your cool factor... ❤️",
         "Confirming you're the real deal... 💯",
         "Almost there... just double-checking... ⚡",
       ];
@@ -499,7 +499,7 @@ function OnboardingPageContent() {
       const loadingMessages = [
         "Checking your vibe... 🔍",
         "Analyzing your party DNA... 🧬",
-        "Verifying your cool factor... �",
+        "Verifying your cool factor... ❤️",
         "Confirming you're the real deal... 💯",
         "Almost there... just double-checking... ⚡",
       ];
@@ -918,7 +918,7 @@ function OnboardingPageContent() {
                       </div>
                       <span>•</span>
                       <div className="flex items-center gap-1">
-                        <span>�</span>
+                        <span>❤️</span>
                         <span>Exclusive</span>
                       </div>
                     </div>
@@ -1576,7 +1576,7 @@ function OnboardingPageContent() {
         )}
         {formData.musicTaste.filter((g) => g !== "Other").length > 0 && (
           <p className="text-sm text-black font-bold flex items-center justify-center gap-2 animate-bounce-in">
-            <span className="text-lg">�</span>
+            <span className="text-lg">❤️</span>
             <span>
               {formData.musicTaste.filter((g) => g !== "Other").length}{" "}
               {formData.musicTaste.filter((g) => g !== "Other").length === 1
@@ -1740,9 +1740,9 @@ function OnboardingPageContent() {
   if (currentStep === 8) {
     return renderQuestionStep(
       8,
-      "Describe your perfect night �",
+      "Describe your perfect night ❤️",
       "Paint us a picture! What's the vibe? (Optional)",
-      "�",
+      "❤️",
       <textarea
         value={formData.idealNightOut}
         onChange={(e) => updateFormData("idealNightOut", e.target.value)}
@@ -1792,7 +1792,7 @@ function OnboardingPageContent() {
           <div className="bg-white rounded-3xl p-10 md:p-12 shadow-2xl animate-bounce-in">
             <div className="space-y-8">
               <div className="space-y-4">
-                <div className="text-7xl animate-bounce-in">�</div>
+                <div className="text-7xl animate-bounce-in">❤️</div>
                 <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight">
                   Welcome to PuraVida
                 </h2>
@@ -1887,7 +1887,7 @@ function OnboardingPageContent() {
     const loadingMessages = [
       "Checking your vibe... 🔍",
       "Analyzing your party DNA... 🧬",
-      "Verifying your cool factor... �",
+      "Verifying your cool factor... ❤️",
       "Confirming you're the real deal... 💯",
       "Almost there... just double-checking... ⚡",
     ];
@@ -1950,7 +1950,7 @@ function OnboardingPageContent() {
                 </span>
               </p>
               <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto font-medium">
-                Just making sure everything is perfect... �
+                Just making sure everything is perfect... ❤️
               </p>
             </div>
           </div>

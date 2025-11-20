@@ -155,7 +155,66 @@ rsync -avz --progress --delete out/ deploy@your-server-ip:/var/www/html/puravida
 
 1. Upload the entire contents of the `out` directory to your web server's document root (e.g., `/public_html/` or `/var/www/html/`)
 
-### Step 3: Configure Web Server (Nginx)
+### Step 3: Configure Web Server
+
+#### Option A: Apache (Recommended for shared hosting)
+
+The `.htaccess` file in the `public/` directory is automatically copied to the build output and handles routing. However, you need to ensure Apache is configured correctly:
+
+**1. Enable required Apache modules:**
+
+```bash
+sudo a2enmod rewrite
+sudo a2enmod headers
+sudo a2enmod expires
+sudo a2enmod deflate
+sudo systemctl restart apache2
+```
+
+**2. Configure Apache Virtual Host:**
+
+```bash
+sudo nano /etc/apache2/sites-available/puravida.conf
+```
+
+Add:
+
+```apache
+<VirtualHost *:80>
+    ServerName invite.puravida.events
+    DocumentRoot /var/www/html/puravida-website
+
+    <Directory /var/www/html/puravida-website>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/puravida-error.log
+    CustomLog ${APACHE_LOG_DIR}/puravida-access.log combined
+</VirtualHost>
+```
+
+**3. Enable the site:**
+
+```bash
+sudo a2ensite puravida.conf
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+**Important:** The `.htaccess` file from `public/.htaccess` is automatically copied to the root of the `out/` directory during build. Make sure:
+- `mod_rewrite` is enabled
+- `AllowOverride All` is set in your Apache configuration
+- The `.htaccess` file exists in the deployed directory
+
+**Verify `.htaccess` is deployed:**
+```bash
+ls -la /var/www/html/puravida-website/.htaccess
+```
+
+#### Option B: Nginx
 
 If you're using Nginx, create a simple static file server configuration:
 
@@ -197,6 +256,13 @@ sudo systemctl reload nginx
 
 Use Let's Encrypt (free SSL):
 
+**For Apache:**
+```bash
+sudo apt install certbot python3-certbot-apache
+sudo certbot --apache -d invite.puravida.events
+```
+
+**For Nginx:**
 ```bash
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
@@ -219,16 +285,43 @@ sudo certbot --nginx -d your-domain.com
 ls -la /var/www/html/puravida-website/
 ```
 
-**Check Nginx configuration:**
+**Verify `.htaccess` is present:**
+
+```bash
+ls -la /var/www/html/puravida-website/.htaccess
+cat /var/www/html/puravida-website/.htaccess
+```
+
+**Check Apache configuration:**
+
+```bash
+# Test Apache configuration
+sudo apache2ctl configtest
+
+# Check if mod_rewrite is enabled
+apache2ctl -M | grep rewrite
+
+# Check Apache status
+sudo systemctl status apache2
+
+# View Apache error logs
+sudo tail -f /var/log/apache2/error.log
+
+# View site-specific error logs
+sudo tail -f /var/log/apache2/puravida-error.log
+```
+
+**Common Apache Issues:**
+
+1. **"Not Found" errors:** Ensure `mod_rewrite` is enabled and `AllowOverride All` is set
+2. **"Forbidden" errors on reload:** The `.htaccess` file includes `DirectorySlash Off` to prevent this
+3. **Routes not working:** Verify the `.htaccess` file is in the document root and Apache can read it
+
+**Check Nginx configuration (if using Nginx):**
 
 ```bash
 sudo nginx -t
 sudo systemctl status nginx
-```
-
-**View Nginx error logs:**
-
-```bash
 sudo tail -f /var/log/nginx/error.log
 ```
 
