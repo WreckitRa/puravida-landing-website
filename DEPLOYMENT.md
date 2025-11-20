@@ -101,90 +101,63 @@ Make sure to set these in Vercel Dashboard → Settings → Environment Variable
 
 ---
 
-## 🖥️ Hostinger Deployment
+## 🖥️ Hostinger Deployment (Static Export)
 
-Hostinger supports Node.js applications through their VPS or Business/Cloud hosting plans. The `output: 'standalone'` configuration in `next.config.ts` creates a minimal production build optimized for self-hosting.
+The project is configured for **static export** (`output: 'export'`), which means it generates fully static HTML/CSS/JS files that can be served by any web server. **No Node.js server required!**
 
 ### Prerequisites
 
-- Hostinger VPS, Business, or Cloud hosting plan with Node.js support
-- SSH access to your server
-- Node.js 18+ installed on your server
-- PM2 (recommended) for process management
+- Hostinger hosting plan (any plan that supports static files - Shared, Business, VPS, or Cloud)
+- SSH access to your server (or FTP/SFTP)
+- **No Node.js required on the server** (only needed for building)
 
-### Step 1: Build Locally (Optional) or on Server
+### Step 1: Build Locally
 
-**Option A: Build on your local machine**
+Build the static export on your local machine (or CI/CD):
 
 ```bash
 # Install dependencies
 npm install
 
-# Build the application
+# Set environment variables before building
+export NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+export NEXT_PUBLIC_SITE_URL=https://your-domain.com
+export NEXT_PUBLIC_API_URL=https://api.puravida.events
+
+# Build the static export
 npm run build
 
-# The standalone build will be in .next/standalone/
+# The static files will be in the 'out' directory
 ```
 
-**Option B: Build directly on Hostinger server**
+**Important:** All `NEXT_PUBLIC_*` environment variables must be set **before building** as they are embedded into the static files at build time.
+
+### Step 2: Deploy Static Files
+
+**Option A: Using the deploy script**
 
 ```bash
-# SSH into your Hostinger server
-ssh your-username@your-server-ip
+# Make sure deploy.sh is executable
+chmod +x deploy.sh
 
-# Clone your repository
-git clone https://github.com/your-username/puravida-new-website.git
-cd puravida-new-website
-
-# Install dependencies
-npm install
-
-# Build the application
-npm run build
+# Run the deploy script
+./deploy.sh
 ```
 
-### Step 2: Set Up Environment Variables
-
-Create a `.env.production` file on your server:
+**Option B: Manual deployment via SSH/rsync**
 
 ```bash
-nano .env.production
+# Copy the 'out' directory to your web server
+rsync -avz --progress --delete out/ deploy@your-server-ip:/var/www/html/puravida-website-next/
 ```
 
-Add your environment variables:
+**Option C: Manual deployment via FTP/SFTP**
 
-```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
-NEXT_PUBLIC_SITE_URL=https://your-domain.com
-NEXT_PUBLIC_API_URL=https://api.puravida.events
-```
+1. Upload the entire contents of the `out` directory to your web server's document root (e.g., `/public_html/` or `/var/www/html/`)
 
-### Step 3: Install PM2 (Process Manager)
+### Step 3: Configure Web Server (Nginx)
 
-```bash
-npm install -g pm2
-```
-
-### Step 4: Start the Application
-
-The standalone build creates a minimal server. Start it with:
-
-```bash
-# From the project root
-node .next/standalone/server.js
-```
-
-Or with PM2 (recommended for production):
-
-```bash
-pm2 start .next/standalone/server.js --name puravida-website
-pm2 save
-pm2 startup  # Follow instructions to enable auto-start on reboot
-```
-
-### Step 5: Configure Reverse Proxy (Nginx)
-
-If you're using Nginx, create a configuration file:
+If you're using Nginx, create a simple static file server configuration:
 
 ```bash
 sudo nano /etc/nginx/sites-available/puravida
@@ -196,17 +169,18 @@ Add:
 server {
     listen 80;
     server_name your-domain.com;
+    root /var/www/html/puravida-website-next;
+    index index.html;
 
+    # Serve static files
     location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        try_files $uri $uri.html $uri/ =404;
+    }
+
+    # Cache static assets
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
 }
 ```
@@ -219,7 +193,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Step 6: Set Up SSL Certificate
+### Step 4: Set Up SSL Certificate
 
 Use Let's Encrypt (free SSL):
 
@@ -228,30 +202,34 @@ sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
 ```
 
-### Important Notes for Hostinger
+### Important Notes for Static Export
 
-- **Port Configuration**: Next.js runs on port 3000 by default. Make sure this port is open in your firewall
-- **Node.js Version**: Ensure Node.js 18+ is installed (`node --version`)
-- **Memory**: Next.js standalone builds are optimized but still require adequate server resources
-- **Static Files**: The standalone build includes all necessary files in `.next/standalone/`
-- **Environment Variables**: Make sure all `NEXT_PUBLIC_*` variables are set before building
+- ✅ **No Node.js server needed** - Just serve static files
+- ✅ **No PM2 needed** - No process to manage
+- ✅ **Works on any hosting** - Shared hosting, VPS, CDN, etc.
+- ✅ **Faster and cheaper** - No server resources needed
+- ⚠️ **Environment Variables**: Must be set at **build time**, not runtime
+- ⚠️ **Build Directory**: Static files are in the `out/` directory after build
 
 ### Troubleshooting
 
-**Check if the app is running:**
+**Check if files are deployed:**
+
 ```bash
-pm2 status
-pm2 logs puravida-website
+ls -la /var/www/html/puravida-website-next/
 ```
 
-**Restart the application:**
+**Check Nginx configuration:**
+
 ```bash
-pm2 restart puravida-website
+sudo nginx -t
+sudo systemctl status nginx
 ```
 
-**Check port availability:**
+**View Nginx error logs:**
+
 ```bash
-netstat -tulpn | grep 3000
+sudo tail -f /var/log/nginx/error.log
 ```
 
 ---
@@ -265,8 +243,8 @@ netstat -tulpn | grep 3000
 3. Import repository
 4. Build settings:
    - Build command: `npm run build`
-   - Publish directory: `.next`
-5. Add environment variables
+   - Publish directory: `out` (for static export)
+5. Add environment variables (all `NEXT_PUBLIC_*` variables)
 6. Deploy
 
 ### Railway
@@ -282,11 +260,11 @@ netstat -tulpn | grep 3000
 
 1. Push to GitHub
 2. Go to [render.com](https://render.com)
-3. New → Web Service
+3. New → Static Site (not Web Service, since we're using static export)
 4. Connect GitHub repository
 5. Build command: `npm run build`
-6. Start command: `npm start`
-7. Add environment variables
+6. Publish directory: `out`
+7. Add environment variables (all `NEXT_PUBLIC_*` variables)
 8. Deploy
 
 ---

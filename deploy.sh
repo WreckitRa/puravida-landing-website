@@ -42,42 +42,28 @@ npm install
 
 # Step 5: Build the project
 echo -e "${YELLOW}Step 5: Building the project...${NC}"
+echo -e "${YELLOW}Note: Make sure all NEXT_PUBLIC_* environment variables are set before building${NC}"
 npm run build
 
 # Step 6: Deploy to server
 echo -e "${YELLOW}Step 6: Deploying to server...${NC}"
 echo -e "Copying files to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}"
 
-# Check if build files exist
-if [ ! -d ".next/standalone" ]; then
-    echo -e "${RED}Error: .next/standalone directory not found. Build may have failed.${NC}"
+# Check if build files exist (static export creates 'out' directory)
+if [ ! -d "out" ]; then
+    echo -e "${RED}Error: 'out' directory not found. Build may have failed.${NC}"
+    echo -e "${RED}Make sure next.config.ts has 'output: export' configured.${NC}"
     exit 1
 fi
 
-if [ ! -d ".next/static" ]; then
-    echo -e "${RED}Error: .next/static directory not found. Build may have failed.${NC}"
-    exit 1
-fi
+# Create necessary directory on server
+echo -e "Creating directory on server..."
+ssh ${SERVER_USER}@${SERVER_IP} "mkdir -p ${SERVER_PATH}"
 
-if [ ! -d "public" ]; then
-    echo -e "${RED}Error: public directory not found.${NC}"
-    exit 1
-fi
-
-# Create necessary directories on server
-echo -e "Creating directories on server..."
-ssh ${SERVER_USER}@${SERVER_IP} "mkdir -p ${SERVER_PATH}.next/standalone ${SERVER_PATH}.next/static ${SERVER_PATH}public"
-
-# Copy files to server using rsync (faster than scp, supports compression and incremental updates)
-echo -e "Transferring files (this may take a few minutes)..."
-echo -e "Copying .next/standalone..."
-rsync -avz --progress .next/standalone/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}.next/standalone/
-
-echo -e "Copying .next/static..."
-rsync -avz --progress .next/static/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}.next/static/
-
-echo -e "Copying public..."
-rsync -avz --progress public/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}public/
+# Copy static files to server using rsync (faster than scp, supports compression and incremental updates)
+echo -e "Transferring static files (this may take a few minutes)..."
+echo -e "Copying out/ directory (all static files)..."
+rsync -avz --progress --delete out/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${GREEN}Files have been deployed to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}${NC}"
