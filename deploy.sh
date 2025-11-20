@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Configuration
 SERVER_USER="deploy"
 SERVER_IP="194.163.45.139"
-SERVER_PATH="/var/www/html/puravida-website-next/"
+SERVER_PATH="/var/www/html/puravida-website/"
 
 echo -e "${GREEN}Starting deployment process...${NC}"
 

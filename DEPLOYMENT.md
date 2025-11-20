@@ -148,7 +148,7 @@ chmod +x deploy.sh
 
 ```bash
 # Copy the 'out' directory to your web server
-rsync -avz --progress --delete out/ deploy@your-server-ip:/var/www/html/puravida-website-next/
+rsync -avz --progress --delete out/ deploy@your-server-ip:/var/www/html/puravida-website/
 ```
 
 **Option C: Manual deployment via FTP/SFTP**
@@ -169,7 +169,7 @@ Add:
 server {
     listen 80;
     server_name your-domain.com;
-    root /var/www/html/puravida-website-next;
+    root /var/www/html/puravida-website;
     index index.html;
 
     # Serve static files
@@ -216,7 +216,7 @@ sudo certbot --nginx -d your-domain.com
 **Check if files are deployed:**
 
 ```bash
-ls -la /var/www/html/puravida-website-next/
+ls -la /var/www/html/puravida-website/
 ```
 
 **Check Nginx configuration:**
