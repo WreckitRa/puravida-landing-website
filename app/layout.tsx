@@ -98,8 +98,8 @@ export const metadata: Metadata = {
   category: "Lifestyle Membership",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
       { url: "/assets/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
     ],
     apple: [
       { url: "/assets/icon-192.png", sizes: "192x192", type: "image/png" },
