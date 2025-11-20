@@ -64,8 +64,16 @@ if [ ! -d "public" ]; then
     exit 1
 fi
 
-# Copy files to server
-scp -r .next/standalone .next/static public ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}
+# Copy files to server using rsync (faster than scp, supports compression and incremental updates)
+echo -e "Transferring files (this may take a few minutes)..."
+echo -e "Copying .next/standalone..."
+rsync -avz --progress .next/standalone/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}.next/standalone/
+
+echo -e "Copying .next/static..."
+rsync -avz --progress .next/static/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}.next/static/
+
+echo -e "Copying public..."
+rsync -avz --progress public/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}public/
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${GREEN}Files have been deployed to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}${NC}"
