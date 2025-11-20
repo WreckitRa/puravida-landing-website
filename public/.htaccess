@@ -1,10 +1,6 @@
 # Disable directory listing
 Options -Indexes
 
-# Prevent Apache from automatically adding trailing slashes
-# This prevents "Forbidden" errors when reloading pages
-DirectorySlash Off
-
 # Prevent access to .htaccess file itself
 <FilesMatch "^\.ht">
   Require all denied
@@ -34,12 +30,12 @@ DirectorySlash Off
   # Handle Next.js App Router static export
   # Next.js creates routes as: /route/index.html
   
-  # Skip rewrite if the file already exists
+  # Skip rewrite if the file already exists (static assets)
   RewriteCond %{REQUEST_FILENAME} -f
   RewriteRule . - [L]
 
-  # Handle requests WITH trailing slash - try to serve index.html
-  # This prevents the "Forbidden" error when Apache tries to list directories
+  # If requesting a directory with trailing slash, try to serve index.html
+  RewriteCond %{REQUEST_FILENAME} -d
   RewriteCond %{REQUEST_URI} ^(.+)/$
   RewriteCond %{DOCUMENT_ROOT}%1/index.html -f
   RewriteRule ^(.+)/$ $1/index.html [L]
@@ -58,8 +54,8 @@ DirectorySlash Off
   RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.html -f
   RewriteRule ^(.*)$ $1.html [L]
 
-  # If route doesn't exist and has trailing slash, redirect to without trailing slash
-  # This prevents the "Forbidden" error when Apache tries to list a non-existent directory
+  # If requesting with trailing slash but no matching file, remove trailing slash
+  # This prevents Apache from trying to list the directory
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_URI} ^(.+)/$

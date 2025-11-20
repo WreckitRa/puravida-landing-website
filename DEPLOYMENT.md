@@ -184,6 +184,10 @@ Add:
     ServerName invite.puravida.events
     DocumentRoot /var/www/html/puravida-website
 
+    # Prevent Apache from automatically adding trailing slashes
+    # This prevents "Forbidden" errors when reloading pages
+    DirectorySlash Off
+
     <Directory /var/www/html/puravida-website>
         Options -Indexes +FollowSymLinks
         AllowOverride All
@@ -193,6 +197,7 @@ Add:
     # Logging
     ErrorLog ${APACHE_LOG_DIR}/puravida-error.log
     CustomLog ${APACHE_LOG_DIR}/puravida-access.log combined
+    LogLevel warn
 </VirtualHost>
 ```
 
@@ -211,7 +216,22 @@ sudo systemctl reload apache2
 
 **Verify `.htaccess` is deployed:**
 ```bash
+# On your server, check if .htaccess exists:
 ls -la /var/www/html/puravida-website/.htaccess
+
+# If it doesn't exist, check if it was built:
+ls -la out/.htaccess
+
+# If it exists in 'out' but not on server, the deployment didn't copy it
+# Manually copy it:
+scp out/.htaccess deploy@your-server-ip:/var/www/html/puravida-website/.htaccess
+```
+
+**Run diagnostic script:**
+```bash
+# Copy the diagnostic script to your server and run it:
+scp check-apache.sh deploy@your-server-ip:~/
+ssh deploy@your-server-ip "bash ~/check-apache.sh"
 ```
 
 #### Option B: Nginx
