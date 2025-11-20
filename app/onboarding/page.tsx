@@ -251,6 +251,37 @@ function OnboardingPageContent() {
     }
   }, [currentStep, products.length, productsLoading]);
 
+  // Handle loading messages for step 12 (checking account)
+  useEffect(() => {
+    if (currentStep === 12 && isCheckingAccount) {
+      const loadingMessages = [
+        "Checking your vibe... 🔍",
+        "Analyzing your party DNA... 🧬",
+        "Verifying your cool factor... 🤝❤️",
+        "Confirming you're the real deal... 💯",
+        "Almost there... just double-checking... ⚡",
+      ];
+      
+      // Reset to first message when loading starts
+      setCurrentLoadingMessageIndex(0);
+      
+      // Change message every 800ms to ensure each message is visible
+      const interval = setInterval(() => {
+        setCurrentLoadingMessageIndex((prev) => {
+          const next = prev + 1;
+          // Stop at the last message (don't loop)
+          if (next >= loadingMessages.length) {
+            clearInterval(interval);
+            return prev; // Stay on last message
+          }
+          return next;
+        });
+      }, 800); // Change message every 800ms
+      
+      return () => clearInterval(interval);
+    }
+  }, [currentStep, isCheckingAccount]);
+
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
 
@@ -1838,28 +1869,6 @@ function OnboardingPageContent() {
       "Confirming you're the real deal... 💯",
       "Almost there... just double-checking... ⚡",
     ];
-
-    useEffect(() => {
-      if (isCheckingAccount && currentStep === 12) {
-        // Reset to first message when loading starts
-        setCurrentLoadingMessageIndex(0);
-        
-        // Change message every 800ms to ensure each message is visible
-        const interval = setInterval(() => {
-          setCurrentLoadingMessageIndex((prev) => {
-            const next = prev + 1;
-            // Stop at the last message (don't loop)
-            if (next >= loadingMessages.length) {
-              clearInterval(interval);
-              return prev; // Stay on last message
-            }
-            return next;
-          });
-        }, 800); // Change message every 800ms
-        
-        return () => clearInterval(interval);
-      }
-    }, [isCheckingAccount, currentStep, loadingMessages.length]);
 
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
