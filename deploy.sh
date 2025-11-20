@@ -36,17 +36,67 @@ git commit -m "$commit_message" || {
 echo -e "${YELLOW}Step 3: Pushing to remote repository...${NC}"
 git push
 
-# Step 4: Install dependencies
-echo -e "${YELLOW}Step 4: Installing dependencies...${NC}"
+# Step 4: Version bump
+echo -e "${YELLOW}Step 4: Version bump...${NC}"
+echo -e "Select version bump type:"
+echo -e "  1) Patch (0.1.0 -> 0.1.1) - Bug fixes"
+echo -e "  2) Minor (0.1.0 -> 0.2.0) - New features"
+echo -e "  3) Major (0.1.0 -> 1.0.0) - Breaking changes"
+read -p "Enter your choice (1-3): " version_choice
+
+# Get current version from package.json
+current_version=$(node -p "require('./package.json').version")
+IFS='.' read -ra VERSION_PARTS <<< "$current_version"
+major="${VERSION_PARTS[0]}"
+minor="${VERSION_PARTS[1]}"
+patch="${VERSION_PARTS[2]}"
+
+# Increment version based on choice
+case $version_choice in
+    1)
+        patch=$((patch + 1))
+        new_version="$major.$minor.$patch"
+        echo -e "${GREEN}Bumping patch version: $current_version -> $new_version${NC}"
+        ;;
+    2)
+        minor=$((minor + 1))
+        patch=0
+        new_version="$major.$minor.$patch"
+        echo -e "${GREEN}Bumping minor version: $current_version -> $new_version${NC}"
+        ;;
+    3)
+        major=$((major + 1))
+        minor=0
+        patch=0
+        new_version="$major.$minor.$patch"
+        echo -e "${GREEN}Bumping major version: $current_version -> $new_version${NC}"
+        ;;
+    *)
+        echo -e "${RED}Invalid choice. Using current version without bump.${NC}"
+        new_version="$current_version"
+        ;;
+esac
+
+# Update package.json version
+if [ "$new_version" != "$current_version" ]; then
+    node -e "const fs = require('fs'); const pkg = require('./package.json'); pkg.version = '$new_version'; fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
+    echo -e "${GREEN}Updated package.json version to $new_version${NC}"
+    
+    # Add package.json to git since we modified it
+    git add package.json
+fi
+
+# Step 5: Install dependencies
+echo -e "${YELLOW}Step 5: Installing dependencies...${NC}"
 npm install
 
-# Step 5: Build the project
-echo -e "${YELLOW}Step 5: Building the project...${NC}"
+# Step 6: Build the project
+echo -e "${YELLOW}Step 6: Building the project...${NC}"
 echo -e "${YELLOW}Note: Make sure all NEXT_PUBLIC_* environment variables are set before building${NC}"
 npm run build
 
-# Step 6: Deploy to server
-echo -e "${YELLOW}Step 6: Deploying to server...${NC}"
+# Step 7: Deploy to server
+echo -e "${YELLOW}Step 7: Deploying to server...${NC}"
 echo -e "Copying files to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}"
 
 # Check if build files exist (static export creates 'out' directory)
