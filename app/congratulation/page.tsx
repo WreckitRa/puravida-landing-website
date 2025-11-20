@@ -94,7 +94,7 @@ export default function CongratulationPage() {
 ${userData.first_name} invited you to join PuraVida - Dubai's most exclusive nightlife community! 🎉
 
 Get access to:
-✨ Guest lists at 10+ top nightclubs
+🤝❤️ Guest lists at 10+ top nightclubs
 ⭐ Priority bookings & up to 25% discounts at Dubai's best restaurants
 🎉 Exclusive after-parties
 
@@ -170,7 +170,7 @@ Join me and unlock Dubai's inner circle! Use my invite link to get started:`,
         {/* Success Icon */}
         <div className="flex justify-center animate-bounce-in">
           <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-white flex items-center justify-center shadow-2xl animate-scale-in">
-            <div className="text-5xl md:text-7xl">✨</div>
+            <div className="text-5xl md:text-7xl">🤝❤️</div>
           </div>
         </div>
 
