@@ -311,11 +311,19 @@ export async function createManualUser(
     const result: CreateManualUserResponse = await response.json();
 
     if (!response.ok) {
+      // Check if error message contains SQL duplicate entry error
+      const errorMessage = result.error?.message || result.message || "Failed to create user";
+      const isDuplicatePhone = 
+        errorMessage.includes("Duplicate entry") && errorMessage.includes("users_phone_unique") ||
+        errorMessage.includes("SQLSTATE[23000]") ||
+        errorMessage.includes("Integrity constraint violation") ||
+        errorMessage.includes("1062");
+      
       return {
         success: false,
         error: result.error || {
-          code: "UNKNOWN_ERROR",
-          message: result.message || "Failed to create user",
+          code: isDuplicatePhone ? "DUPLICATE_PHONE" : "UNKNOWN_ERROR",
+          message: errorMessage,
         },
       };
     }

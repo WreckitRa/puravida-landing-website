@@ -18,26 +18,8 @@ SERVER_PATH="/var/www/html/puravida-website/"
 
 echo -e "${GREEN}Starting deployment process...${NC}"
 
-# Step 1: Add all changes to git
-echo -e "${YELLOW}Step 1: Adding files to git...${NC}"
-git add .
-
-# Step 2: Commit changes
-echo -e "${YELLOW}Step 2: Committing changes...${NC}"
-read -p "Enter commit message (or press Enter for default): " commit_message
-if [ -z "$commit_message" ]; then
-    commit_message="Deploy: $(date +'%Y-%m-%d %H:%M:%S')"
-fi
-git commit -m "$commit_message" || {
-    echo -e "${YELLOW}No changes to commit, continuing...${NC}"
-}
-
-# Step 3: Push to remote
-echo -e "${YELLOW}Step 3: Pushing to remote repository...${NC}"
-git push
-
-# Step 4: Version bump
-echo -e "${YELLOW}Step 4: Version bump...${NC}"
+# Step 1: Version bump
+echo -e "${YELLOW}Step 1: Version bump...${NC}"
 echo -e "Select version bump type:"
 echo -e "  1) Patch (0.1.0 -> 0.1.1) - Bug fixes"
 echo -e "  2) Minor (0.1.0 -> 0.2.0) - New features"
@@ -81,10 +63,25 @@ esac
 if [ "$new_version" != "$current_version" ]; then
     node -e "const fs = require('fs'); const pkg = require('./package.json'); pkg.version = '$new_version'; fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
     echo -e "${GREEN}Updated package.json version to $new_version${NC}"
-    
-    # Add package.json to git since we modified it
-    git add package.json
 fi
+
+# Step 2: Add all changes to git
+echo -e "${YELLOW}Step 2: Adding files to git...${NC}"
+git add .
+
+# Step 3: Commit changes
+echo -e "${YELLOW}Step 3: Committing changes...${NC}"
+read -p "Enter commit message (or press Enter for default): " commit_message
+if [ -z "$commit_message" ]; then
+    commit_message="Deploy: $(date +'%Y-%m-%d %H:%M:%S')"
+fi
+git commit -m "$commit_message" || {
+    echo -e "${YELLOW}No changes to commit, continuing...${NC}"
+}
+
+# Step 4: Push to remote
+echo -e "${YELLOW}Step 4: Pushing to remote repository...${NC}"
+git push
 
 # Step 5: Install dependencies
 echo -e "${YELLOW}Step 5: Installing dependencies...${NC}"

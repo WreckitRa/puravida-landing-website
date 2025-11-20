@@ -107,6 +107,7 @@ function OnboardingPageContent() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userCreationError, setUserCreationError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     gender: "",
@@ -336,14 +337,42 @@ function OnboardingPageContent() {
           // Await and store the response to check status later
           const response = await createManualUser(manualUserData);
           setManualUserResponse(response);
+          
+          // Check if user creation failed
+          if (!response.success || response.error) {
+            // Parse error message to detect duplicate phone number
+            const errorMessage = response.error?.message || response.message || "Failed to create user";
+            let userFriendlyMessage = errorMessage;
+            
+            // Check for duplicate phone number error (handles both API error format and raw SQL errors)
+            if (
+              (errorMessage.includes("Duplicate entry") && errorMessage.includes("users_phone_unique")) ||
+              errorMessage.includes("SQLSTATE[23000]") ||
+              errorMessage.includes("Integrity constraint violation") ||
+              errorMessage.includes("1062")
+            ) {
+              userFriendlyMessage = "This phone number is already registered. Please use a different phone number or contact support if you believe this is an error.";
+            }
+            
+            setUserCreationError(userFriendlyMessage);
+            setIsCreatingUser(false);
+            return; // Prevent continuing to next step
+          }
+          
+          // Clear any previous errors on success
+          setUserCreationError(null);
         } catch (error) {
           console.error("Error creating user:", error);
-          // Continue with flow even if user creation fails
+          const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred. Please try again.";
+          setUserCreationError(errorMessage);
+          setIsCreatingUser(false);
+          return; // Prevent continuing to next step
         } finally {
           setIsCreatingUser(false);
         }
       }
 
+      // Only proceed to next step if user creation was successful (or not required for this step)
       setIsAnimating(true);
       setTimeout(() => {
         setCurrentStep((prev) => prev + 1);
@@ -368,7 +397,7 @@ function OnboardingPageContent() {
         : formData.mobile || "";
 
     // Prepare form data with attribution (matching API_SPECIFICATION.md format)
-    // Convert age to number (validation ensures it's a valid integer between 18-120)
+    // Convert age to number (validation ensures it's a valid integer between 21-120)
     const ageNumber = parseInt(formData.age, 10);
 
     // Split full name into first_name and last_name (same as createManualUser)
@@ -464,6 +493,12 @@ function OnboardingPageContent() {
     // Validate Instagram handle
     const instagramValidation = validateInstagramHandle(formData.instagram);
     if (!instagramValidation.isValid) {
+      return false;
+    }
+
+    // Validate age range (21-120)
+    const ageNum = parseInt(formData.age, 10);
+    if (isNaN(ageNum) || ageNum < 21 || ageNum > 120) {
       return false;
     }
 
@@ -1060,12 +1095,12 @@ function OnboardingPageContent() {
                       }
                     }}
                     onBlur={(e) => {
-                      // Validate on blur - ensure final value is between 18-120
+                      // Validate on blur - ensure final value is between 21-120
                       const value = e.target.value.replace(/[^0-9]/g, "");
                       const ageNum = parseInt(value, 10);
                       if (
                         value &&
-                        (isNaN(ageNum) || ageNum < 18 || ageNum > 120)
+                        (isNaN(ageNum) || ageNum < 21 || ageNum > 120)
                       ) {
                         // Reset to empty if invalid
                         updateFormData("age", "");
@@ -1073,7 +1108,7 @@ function OnboardingPageContent() {
                     }}
                     className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
                     placeholder="25"
-                    min="18"
+                    min="21"
                     max="120"
                     step="1"
                     required
@@ -1131,6 +1166,10 @@ function OnboardingPageContent() {
                       value={formData.phoneCode || "971"}
                       onChange={(code) => {
                         updateFormData("phoneCode", code);
+                        // Clear error when user changes phone code
+                        if (userCreationError) {
+                          setUserCreationError(null);
+                        }
                         // Track selection
                         trackSelection(
                           "phoneCode",
@@ -1154,6 +1193,10 @@ function OnboardingPageContent() {
                         // Only allow numbers
                         const value = e.target.value.replace(/\D/g, "");
                         updateFormData("mobile", value);
+                        // Clear error when user starts editing
+                        if (userCreationError) {
+                          setUserCreationError(null);
+                        }
                       }}
                       onFocus={() =>
                         trackFieldInteraction("mobile", currentStep, "focus")
@@ -1218,6 +1261,14 @@ function OnboardingPageContent() {
                   />
                 </div>
               </div>
+
+              {userCreationError && (
+                <div className="pt-2">
+                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
+                    <p className="text-red-600 font-medium text-sm">{userCreationError}</p>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-4">
                 <button
