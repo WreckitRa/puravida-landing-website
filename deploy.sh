@@ -65,6 +65,11 @@ echo -e "Transferring static files (this may take a few minutes)..."
 echo -e "Copying out/ directory (all static files)..."
 rsync -avz --progress --delete out/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}
 
+# Set proper permissions for Apache
+echo -e "${YELLOW}Setting file permissions...${NC}"
+ssh ${SERVER_USER}@${SERVER_IP} "chmod -R 755 ${SERVER_PATH} && chown -R www-data:www-data ${SERVER_PATH} 2>/dev/null || chown -R \$(whoami):\$(whoami) ${SERVER_PATH}"
+
 echo -e "${GREEN}Deployment completed successfully!${NC}"
 echo -e "${GREEN}Files have been deployed to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}${NC}"
+echo -e "${YELLOW}Note: Make sure Apache has mod_rewrite enabled and .htaccess files are allowed${NC}"
 
