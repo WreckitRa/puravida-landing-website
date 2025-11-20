@@ -27,7 +27,8 @@ export interface OnboardingSubmissionData {
   gender: string;
   age: number;
   nationality: string;
-  mobile: string; // Combined phone code + mobile in international format (e.g., "+971501234567")
+  phone: string; // Phone number WITHOUT country code (e.g., "501234567")
+  country_code: string; // Country code (e.g., "971" for UAE)
   email?: string; // Optional in form, but API spec shows it as required - backend should handle
   instagram: string;
 

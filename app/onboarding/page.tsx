@@ -33,7 +33,12 @@ import {
   validatePhoneNumber,
   getInvityNumber,
 } from "@/lib/validation";
-import { createManualUser, type CreateManualUserResponse, getProducts, type Product } from "@/lib/api";
+import {
+  createManualUser,
+  type CreateManualUserResponse,
+  getProducts,
+  type Product,
+} from "@/lib/api";
 import { loadStripe } from "@stripe/stripe-js";
 
 type FormData = {
@@ -100,7 +105,8 @@ function OnboardingPageContent() {
   const [attribution, setAttribution] = useState<AttributionData>({});
   const [countries, setCountries] = useState<Country[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
-  const [manualUserResponse, setManualUserResponse] = useState<CreateManualUserResponse | null>(null);
+  const [manualUserResponse, setManualUserResponse] =
+    useState<CreateManualUserResponse | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -108,8 +114,11 @@ function OnboardingPageContent() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAccount, setIsCheckingAccount] = useState(false);
-  const [currentLoadingMessageIndex, setCurrentLoadingMessageIndex] = useState(0);
-  const [userCreationError, setUserCreationError] = useState<string | null>(null);
+  const [currentLoadingMessageIndex, setCurrentLoadingMessageIndex] =
+    useState(0);
+  const [userCreationError, setUserCreationError] = useState<string | null>(
+    null
+  );
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     gender: "",
@@ -257,14 +266,14 @@ function OnboardingPageContent() {
       const loadingMessages = [
         "Checking your vibe... 🔍",
         "Analyzing your party DNA... 🧬",
-        "Verifying your cool factor... 🤝❤️",
+        "Verifying your cool factor... �",
         "Confirming you're the real deal... 💯",
         "Almost there... just double-checking... ⚡",
       ];
-      
+
       // Reset to first message when loading starts
       setCurrentLoadingMessageIndex(0);
-      
+
       // Change message every 800ms to ensure each message is visible
       const interval = setInterval(() => {
         setCurrentLoadingMessageIndex((prev) => {
@@ -277,7 +286,7 @@ function OnboardingPageContent() {
           return next;
         });
       }, 800); // Change message every 800ms
-      
+
       return () => clearInterval(interval);
     }
   }, [currentStep, isCheckingAccount]);
@@ -370,33 +379,41 @@ function OnboardingPageContent() {
           // Await and store the response to check status later
           const response = await createManualUser(manualUserData);
           setManualUserResponse(response);
-          
+
           // Check if user creation failed
           if (!response.success || response.error) {
             // Parse error message to detect duplicate phone number
-            const errorMessage = response.error?.message || response.message || "Failed to create user";
+            const errorMessage =
+              response.error?.message ||
+              response.message ||
+              "Failed to create user";
             let userFriendlyMessage = errorMessage;
-            
+
             // Check for duplicate phone number error (handles both API error format and raw SQL errors)
             if (
-              (errorMessage.includes("Duplicate entry") && errorMessage.includes("users_phone_unique")) ||
+              (errorMessage.includes("Duplicate entry") &&
+                errorMessage.includes("users_phone_unique")) ||
               errorMessage.includes("SQLSTATE[23000]") ||
               errorMessage.includes("Integrity constraint violation") ||
               errorMessage.includes("1062")
             ) {
-              userFriendlyMessage = "This phone number is already registered. Please use a different phone number or contact support if you believe this is an error.";
+              userFriendlyMessage =
+                "This phone number is already registered. Please use a different phone number or contact support if you believe this is an error.";
             }
-            
+
             setUserCreationError(userFriendlyMessage);
             setIsCreatingUser(false);
             return; // Prevent continuing to next step
           }
-          
+
           // Clear any previous errors on success
           setUserCreationError(null);
         } catch (error) {
           console.error("Error creating user:", error);
-          const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred. Please try again.";
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred. Please try again.";
           setUserCreationError(errorMessage);
           setIsCreatingUser(false);
           return; // Prevent continuing to next step
@@ -423,12 +440,6 @@ function OnboardingPageContent() {
     // Get latest attribution data
     const currentAttribution = getAttribution();
 
-    // Combine phone code and mobile into international format
-    const mobile =
-      formData.phoneCode && formData.mobile
-        ? `+${formData.phoneCode}${formData.mobile}`
-        : formData.mobile || "";
-
     // Prepare form data with attribution (matching API_SPECIFICATION.md format)
     // Convert age to number (validation ensures it's a valid integer between 21-120)
     const ageNumber = parseInt(formData.age, 10);
@@ -445,7 +456,8 @@ function OnboardingPageContent() {
       gender: formData.gender,
       age: ageNumber,
       nationality: formData.nationality,
-      mobile: mobile, // Combined phone in international format
+      phone: formData.mobile || "", // Phone number WITHOUT country code
+      country_code: formData.phoneCode || "", // Country code (e.g., "961" for Lebanon)
       email: formData.email || undefined,
       instagram: formData.instagram,
       musicTaste: formData.musicTaste,
@@ -487,7 +499,7 @@ function OnboardingPageContent() {
       const loadingMessages = [
         "Checking your vibe... 🔍",
         "Analyzing your party DNA... 🧬",
-        "Verifying your cool factor... 🤝❤️",
+        "Verifying your cool factor... �",
         "Confirming you're the real deal... 💯",
         "Almost there... just double-checking... ⚡",
       ];
@@ -570,7 +582,9 @@ function OnboardingPageContent() {
     setIsProcessingPayment(true);
     try {
       // Initialize Stripe
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+      const stripe = await loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+      );
       if (!stripe) {
         throw new Error("Stripe failed to load");
       }
@@ -588,7 +602,11 @@ function OnboardingPageContent() {
       }
     } catch (error) {
       console.error("Payment error:", error);
-      alert(error instanceof Error ? error.message : "Payment failed. Please try again.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Payment failed. Please try again."
+      );
       setIsProcessingPayment(false);
     }
   };
@@ -601,7 +619,8 @@ function OnboardingPageContent() {
       eur: "€",
       gbp: "£",
     };
-    const symbol = currencySymbols[currency.toLowerCase()] || currency.toUpperCase() + " ";
+    const symbol =
+      currencySymbols[currency.toLowerCase()] || currency.toUpperCase() + " ";
     return `${symbol}${amount.toFixed(2)}`;
   };
 
@@ -899,7 +918,7 @@ function OnboardingPageContent() {
                       </div>
                       <span>•</span>
                       <div className="flex items-center gap-1">
-                        <span>🤝❤️</span>
+                        <span>�</span>
                         <span>Exclusive</span>
                       </div>
                     </div>
@@ -1317,7 +1336,9 @@ function OnboardingPageContent() {
               {userCreationError && (
                 <div className="pt-2">
                   <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-                    <p className="text-red-600 font-medium text-sm">{userCreationError}</p>
+                    <p className="text-red-600 font-medium text-sm">
+                      {userCreationError}
+                    </p>
                   </div>
                 </div>
               )}
@@ -1555,7 +1576,7 @@ function OnboardingPageContent() {
         )}
         {formData.musicTaste.filter((g) => g !== "Other").length > 0 && (
           <p className="text-sm text-black font-bold flex items-center justify-center gap-2 animate-bounce-in">
-            <span className="text-lg">🤝❤️</span>
+            <span className="text-lg">�</span>
             <span>
               {formData.musicTaste.filter((g) => g !== "Other").length}{" "}
               {formData.musicTaste.filter((g) => g !== "Other").length === 1
@@ -1639,7 +1660,8 @@ function OnboardingPageContent() {
             <span className="text-lg">🔥</span>
             <span>
               {formData.favoritePlacesDubai.filter((p) => p !== "Other").length}{" "}
-              {formData.favoritePlacesDubai.filter((p) => p !== "Other").length === 1
+              {formData.favoritePlacesDubai.filter((p) => p !== "Other")
+                .length === 1
                 ? "place"
                 : "places"}{" "}
               selected!
@@ -1718,9 +1740,9 @@ function OnboardingPageContent() {
   if (currentStep === 8) {
     return renderQuestionStep(
       8,
-      "Describe your perfect night 🤝❤️",
+      "Describe your perfect night �",
       "Paint us a picture! What's the vibe? (Optional)",
-      "🤝❤️",
+      "�",
       <textarea
         value={formData.idealNightOut}
         onChange={(e) => updateFormData("idealNightOut", e.target.value)}
@@ -1770,7 +1792,7 @@ function OnboardingPageContent() {
           <div className="bg-white rounded-3xl p-10 md:p-12 shadow-2xl animate-bounce-in">
             <div className="space-y-8">
               <div className="space-y-4">
-                <div className="text-7xl animate-bounce-in">🤝❤️</div>
+                <div className="text-7xl animate-bounce-in">�</div>
                 <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight">
                   Welcome to PuraVida
                 </h2>
@@ -1865,7 +1887,7 @@ function OnboardingPageContent() {
     const loadingMessages = [
       "Checking your vibe... 🔍",
       "Analyzing your party DNA... 🧬",
-      "Verifying your cool factor... 🤝❤️",
+      "Verifying your cool factor... �",
       "Confirming you're the real deal... 💯",
       "Almost there... just double-checking... ⚡",
     ];
@@ -1920,12 +1942,15 @@ function OnboardingPageContent() {
               </h2>
               <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
               <p className="text-2xl md:text-3xl text-gray-700 font-bold max-w-xl mx-auto min-h-[3rem] flex items-center justify-center">
-                <span className="animate-fade-in" key={currentLoadingMessageIndex}>
+                <span
+                  className="animate-fade-in"
+                  key={currentLoadingMessageIndex}
+                >
                   {loadingMessages[currentLoadingMessageIndex]}
                 </span>
               </p>
               <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto font-medium">
-                Just making sure everything is perfect... 🤝❤️
+                Just making sure everything is perfect... �
               </p>
             </div>
           </div>
@@ -1937,7 +1962,8 @@ function OnboardingPageContent() {
   // Step 10: Confirmation (Approved)
   if (currentStep === 10) {
     const iosAppUrl = "https://apps.apple.com/us/app/id6744160016";
-    const androidAppUrl = "https://play.google.com/store/apps/details?id=com.puravida.events";
+    const androidAppUrl =
+      "https://play.google.com/store/apps/details?id=com.puravida.events";
     const whatsappNumber = "971526782867";
     const contactEmail = "hello@thisispuravida.com";
     const contactPhone = "+971 52 678 2867";
@@ -1976,16 +2002,21 @@ function OnboardingPageContent() {
           >
             <div className="space-y-6">
               <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight animate-fade-in">
-                Welcome to PuraVida! 🤝❤️
+                Welcome to PuraVida! ❤️
               </h2>
               <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
               <p className="text-2xl md:text-3xl text-black font-bold max-w-xl mx-auto">
                 You're in! Add yourself to the guestlist 🎉
               </p>
               <p className="text-lg md:text-xl text-gray-700 max-w-2xl mx-auto font-medium">
-                Your request has been approved! You'll receive your activation code shortly by WhatsApp. 
+                Your request has been approved! You'll receive your activation
+                code shortly by WhatsApp.
                 <br />
-                <span className="font-bold text-black">Download the app now</span> to start accessing exclusive guestlists, priority bookings, and curated parties at Dubai's hottest venues.
+                <span className="font-bold text-black">
+                  Download the app now
+                </span>{" "}
+                to start accessing exclusive guestlists, priority bookings, and
+                curated parties at Dubai's hottest venues.
               </p>
 
               {/* App Download Links */}
@@ -1999,13 +2030,21 @@ function OnboardingPageContent() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
-                    onClick={() => trackButtonClick("Download iOS App", 10, "app-download")}
+                    onClick={() =>
+                      trackButtonClick("Download iOS App", 10, "app-download")
+                    }
                   >
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <svg
+                      className="w-8 h-8"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
                       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                     </svg>
                     <div className="text-left">
-                      <div className="text-xs leading-tight opacity-90">Download on the</div>
+                      <div className="text-xs leading-tight opacity-90">
+                        Download on the
+                      </div>
                       <div className="text-lg leading-tight">App Store</div>
                     </div>
                   </a>
@@ -2014,13 +2053,25 @@ function OnboardingPageContent() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
-                    onClick={() => trackButtonClick("Download Android App", 10, "app-download")}
+                    onClick={() =>
+                      trackButtonClick(
+                        "Download Android App",
+                        10,
+                        "app-download"
+                      )
+                    }
                   >
-                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
+                    <svg
+                      className="w-8 h-8"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
                     </svg>
                     <div className="text-left">
-                      <div className="text-xs leading-tight opacity-90">GET IT ON</div>
+                      <div className="text-xs leading-tight opacity-90">
+                        GET IT ON
+                      </div>
                       <div className="text-lg leading-tight">Google Play</div>
                     </div>
                   </a>
@@ -2036,7 +2087,9 @@ function OnboardingPageContent() {
                   <a
                     href={`mailto:${contactEmail}`}
                     className="text-black hover:text-gray-700 font-bold underline transition-colors"
-                    onClick={() => trackButtonClick("Contact Email", 10, "contact")}
+                    onClick={() =>
+                      trackButtonClick("Contact Email", 10, "contact")
+                    }
                   >
                     📧 {contactEmail}
                   </a>
@@ -2046,7 +2099,9 @@ function OnboardingPageContent() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-black hover:text-gray-700 font-bold underline transition-colors"
-                    onClick={() => trackButtonClick("Contact WhatsApp", 10, "contact")}
+                    onClick={() =>
+                      trackButtonClick("Contact WhatsApp", 10, "contact")
+                    }
                   >
                     💬 {contactPhone}
                   </a>
@@ -2079,38 +2134,60 @@ function OnboardingPageContent() {
     }> = [];
 
     // Process products to create payment plans (only male pricing)
-    products.forEach((product) => {
+    // Only process the first product to avoid duplicates
+    if (products.length > 0) {
+      const product = products[0];
       const currency = product.currency_type || "usd";
-      
-      // Monthly plan (male only)
-      if (product.monthly?.male) {
+
+      // Monthly plan (male only) - only add if not already added
+      if (
+        product.monthly?.male &&
+        !paymentPlans.some((p) => p.name === "Monthly")
+      ) {
         const monthly = product.monthly.male;
         paymentPlans.push({
           name: "Monthly",
           price: formatPrice(monthly.amount, currency),
           period: "per month",
-          savings: monthly.original_price ? `Save ${Math.round(((parseFloat(monthly.original_price) - monthly.amount) / parseFloat(monthly.original_price)) * 100)}%` : null,
+          savings: monthly.original_price
+            ? `Save ${Math.round(
+                ((parseFloat(monthly.original_price) - monthly.amount) /
+                  parseFloat(monthly.original_price)) *
+                  100
+              )}%`
+            : null,
           popular: !product.yearly?.male, // Popular if no yearly option or if monthly is the only option
           priceId: monthly.price_id,
           originalPrice: monthly.original_price,
         });
       }
 
-      // Yearly plan (male only)
-      if (product.yearly?.male) {
+      // Yearly plan (male only) - only add if not already added
+      if (
+        product.yearly?.male &&
+        !paymentPlans.some((p) => p.name === "Annual")
+      ) {
         const yearly = product.yearly.male;
         paymentPlans.push({
           name: "Annual",
           price: formatPrice(yearly.amount, currency),
           period: "per year",
-          savings: yearly.percentage ? `Save ${yearly.percentage}%` : yearly.original_price ? `Save ${Math.round(((parseFloat(yearly.original_price) - yearly.amount) / parseFloat(yearly.original_price)) * 100)}%` : null,
+          savings: yearly.percentage
+            ? `Save ${yearly.percentage}%`
+            : yearly.original_price
+            ? `Save ${Math.round(
+                ((parseFloat(yearly.original_price) - yearly.amount) /
+                  parseFloat(yearly.original_price)) *
+                  100
+              )}%`
+            : null,
           popular: true, // Yearly is usually more popular due to savings
           priceId: yearly.price_id,
           originalPrice: yearly.original_price,
           percentage: yearly.percentage,
         });
       }
-    });
+    }
 
     // Default features
     const defaultFeatures = [
@@ -2172,15 +2249,19 @@ function OnboardingPageContent() {
               <h3 className="text-3xl md:text-4xl font-bold text-black mb-6">
                 Choose Your Membership Plan
               </h3>
-              
+
               {productsLoading ? (
                 <div className="text-center py-12">
                   <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
-                  <p className="mt-4 text-gray-600 font-medium">Loading plans...</p>
+                  <p className="mt-4 text-gray-600 font-medium">
+                    Loading plans...
+                  </p>
                 </div>
               ) : productsError ? (
                 <div className="text-center py-12">
-                  <p className="text-red-600 font-medium mb-4">{productsError}</p>
+                  <p className="text-red-600 font-medium mb-4">
+                    {productsError}
+                  </p>
                   <button
                     onClick={() => {
                       setProductsLoading(true);
@@ -2189,7 +2270,9 @@ function OnboardingPageContent() {
                         if (result.success && result.data) {
                           setProducts(result.data);
                         } else {
-                          setProductsError(result.error?.message || "Failed to load products");
+                          setProductsError(
+                            result.error?.message || "Failed to load products"
+                          );
                         }
                         setProductsLoading(false);
                       });
@@ -2201,7 +2284,9 @@ function OnboardingPageContent() {
                 </div>
               ) : paymentPlans.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-600 font-medium">No payment plans available at the moment.</p>
+                  <p className="text-gray-600 font-medium">
+                    No payment plans available at the moment.
+                  </p>
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
@@ -2233,7 +2318,10 @@ function OnboardingPageContent() {
                           <div className="flex items-baseline gap-2 flex-wrap">
                             {plan.originalPrice && (
                               <span className="text-lg text-gray-400 line-through">
-                                {formatPrice(parseFloat(plan.originalPrice), products[0]?.currency_type || "usd")}
+                                {formatPrice(
+                                  parseFloat(plan.originalPrice),
+                                  products[0]?.currency_type || "usd"
+                                )}
                               </span>
                             )}
                             <span className="text-4xl md:text-5xl font-bold text-black">
@@ -2263,7 +2351,11 @@ function OnboardingPageContent() {
                               : "bg-gray-100 text-black hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           }`}
                           onClick={() => {
-                            trackButtonClick(`Select ${plan.name} Plan`, 11, "payment");
+                            trackButtonClick(
+                              `Select ${plan.name} Plan`,
+                              11,
+                              "payment"
+                            );
                             handleStripeCheckout(plan.priceId);
                           }}
                         >

@@ -95,7 +95,7 @@ export default function IHaveInvitePage() {
 ${userData.first_name} invited you to join PuraVida - Dubai's most exclusive nightlife community! 🎉
 
 Get access to:
-🤝❤️ Guest lists at 10+ top nightclubs
+❤️ Guest lists at 10+ top nightclubs
 ⭐ Priority bookings & up to 25% discounts at Dubai's best restaurants
 🎉 Exclusive after-parties
 
