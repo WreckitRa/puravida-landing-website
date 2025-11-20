@@ -64,6 +64,10 @@ if [ ! -d "public" ]; then
     exit 1
 fi
 
+# Create necessary directories on server
+echo -e "Creating directories on server..."
+ssh ${SERVER_USER}@${SERVER_IP} "mkdir -p ${SERVER_PATH}.next/standalone ${SERVER_PATH}.next/static ${SERVER_PATH}public"
+
 # Copy files to server using rsync (faster than scp, supports compression and incremental updates)
 echo -e "Transferring files (this may take a few minutes)..."
 echo -e "Copying .next/standalone..."
