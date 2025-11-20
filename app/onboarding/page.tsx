@@ -105,6 +105,8 @@ function OnboardingPageContent() {
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     gender: "",
@@ -295,6 +297,7 @@ function OnboardingPageContent() {
 
       // Create user in database when completing step 1
       if (currentStep === 1) {
+        setIsCreatingUser(true);
         try {
           // Split full name into first and last name
           const nameParts = formData.fullName.trim().split(/\s+/);
@@ -336,6 +339,8 @@ function OnboardingPageContent() {
         } catch (error) {
           console.error("Error creating user:", error);
           // Continue with flow even if user creation fails
+        } finally {
+          setIsCreatingUser(false);
         }
       }
 
@@ -399,6 +404,7 @@ function OnboardingPageContent() {
     trackConversion(formData, timeToComplete);
 
     setIsAnimating(true);
+    setIsSubmitting(true);
 
     // Submit to API
     const result = await submitOnboarding(submissionData);
@@ -417,6 +423,7 @@ function OnboardingPageContent() {
           setCurrentStep(10); // Success page with approved message
         }
         setIsAnimating(false);
+        setIsSubmitting(false);
       }, 300);
     } else {
       // API returned an error
@@ -427,6 +434,7 @@ function OnboardingPageContent() {
       const errorMessage = result.error?.message || "Please try again later";
       alert(`Submission failed: ${errorMessage}`);
       setIsAnimating(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -1214,15 +1222,39 @@ function OnboardingPageContent() {
               <div className="pt-4">
                 <button
                   type="submit"
-                  disabled={!isStep1Valid()}
+                  disabled={!isStep1Valid() || isCreatingUser}
                   className={`group w-full px-8 py-5 text-lg font-bold tracking-wide transition-all duration-300 rounded-2xl relative overflow-hidden ${
-                    isStep1Valid()
+                    isStep1Valid() && !isCreatingUser
                       ? "bg-black text-white hover:bg-gray-900 hover:scale-105 hover:shadow-2xl active:scale-100"
                       : "bg-gray-300 text-gray-500 cursor-not-allowed"
                   }`}
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
-                    {isStep1Valid() ? (
+                    {isCreatingUser ? (
+                      <>
+                        <svg
+                          className="animate-spin h-5 w-5"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Creating account...
+                      </>
+                    ) : isStep1Valid() ? (
                       <>
                         Continue 🎯
                         <svg
@@ -1243,7 +1275,7 @@ function OnboardingPageContent() {
                       "Fill all fields to continue"
                     )}
                   </span>
-                  {isStep1Valid() && (
+                  {isStep1Valid() && !isCreatingUser && (
                     <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                   )}
                 </button>
@@ -1663,25 +1695,60 @@ function OnboardingPageContent() {
                   trackButtonClick("Submit & Check Eligibility", 9, "lead-in");
                   handleSubmit();
                 }}
-                className="group w-full bg-black text-white px-12 py-6 text-xl font-bold tracking-wide hover:bg-gray-900 transition-all duration-300 rounded-2xl hover:scale-105 hover:shadow-2xl active:scale-100 relative overflow-hidden"
+                disabled={isSubmitting}
+                className={`group w-full px-12 py-6 text-xl font-bold tracking-wide transition-all duration-300 rounded-2xl relative overflow-hidden ${
+                  isSubmitting
+                    ? "bg-gray-600 text-white cursor-not-allowed"
+                    : "bg-black text-white hover:bg-gray-900 hover:scale-105 hover:shadow-2xl active:scale-100"
+                }`}
               >
                 <span className="relative z-10 flex items-center justify-center gap-3">
-                  Submit & Check Eligibility 🚀
-                  <svg
-                    className="w-7 h-7 transition-transform group-hover:translate-x-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={3}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="animate-spin h-6 w-6"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      Submit & Check Eligibility 🚀
+                      <svg
+                        className="w-7 h-7 transition-transform group-hover:translate-x-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M13 7l5 5m0 0l-5 5m5-5H6"
+                        />
+                      </svg>
+                    </>
+                  )}
                 </span>
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+                {!isSubmitting && (
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+                )}
               </button>
             </div>
           </div>
@@ -2016,7 +2083,33 @@ function OnboardingPageContent() {
                             handleStripeCheckout(plan.priceId);
                           }}
                         >
-                          {isProcessingPayment ? "Processing..." : `Select ${plan.name} Plan`}
+                          {isProcessingPayment ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <svg
+                                className="animate-spin h-5 w-5"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              Processing...
+                            </span>
+                          ) : (
+                            `Select ${plan.name} Plan`
+                          )}
                         </button>
                       </div>
                     </div>
