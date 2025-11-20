@@ -27,13 +27,14 @@ import {
 } from "@/lib/api";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import { decodeAndStoreInviteFromUrl } from "@/lib/storage";
-import { initAppLinking } from "@/lib/app-linking";
+import { initAppLinking, isAndroid, isIOS } from "@/lib/app-linking";
 import {
   validateInstagramHandle,
   validatePhoneNumber,
   getInvityNumber,
 } from "@/lib/validation";
-import { createManualUser } from "@/lib/api";
+import { createManualUser, type CreateManualUserResponse, getProducts, type Product } from "@/lib/api";
+import { loadStripe } from "@stripe/stripe-js";
 
 type FormData = {
   // Step 1
@@ -60,6 +61,9 @@ type FormData = {
 
 const MUSIC_GENRES = [
   "House",
+  "Tech House",
+  "Deep House",
+  "Afro House",
   "Techno",
   "Hip-Hop",
   "R&B",
@@ -74,16 +78,16 @@ const MUSIC_GENRES = [
 ];
 
 const DUBAI_PLACES = [
-  "White Dubai",
-  "Cavalli Club",
-  "Zero Gravity",
+  "Be Beach",
+  "Surf Club",
+  "Gate Two",
+  "Iris",
+  "Reunion",
+  "Vnyl HiFi",
   "Soho Garden",
-  "MAD",
-  "BLU",
-  "Sky 2.0",
-  "Sass Cafe",
-  "Cirque Le Soir",
-  "Base Dubai",
+  "Terra Solis",
+  "Pacha",
+  "Moe's on the 5th",
   "Other",
 ];
 
@@ -96,6 +100,11 @@ function OnboardingPageContent() {
   const [attribution, setAttribution] = useState<AttributionData>({});
   const [countries, setCountries] = useState<Country[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
+  const [manualUserResponse, setManualUserResponse] = useState<CreateManualUserResponse | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     gender: "",
@@ -125,6 +134,20 @@ function OnboardingPageContent() {
     const encodedInvite = searchParams.get("invite");
     if (encodedInvite) {
       decodeAndStoreInviteFromUrl(encodedInvite);
+    }
+
+    // Handle payment success/failure
+    const paymentStatus = searchParams.get("payment");
+    if (paymentStatus === "success") {
+      // Payment successful - show success message
+      alert("Payment successful! Your membership is being activated.");
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (paymentStatus === "cancel") {
+      // Payment cancelled
+      alert("Payment was cancelled. You can try again anytime.");
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
     }
   }, [searchParams]);
 
@@ -204,6 +227,24 @@ function OnboardingPageContent() {
       }
     };
   }, [currentStep]);
+
+  // Fetch products when step 11 (payment page) is shown
+  useEffect(() => {
+    if (currentStep === 11 && products.length === 0 && !productsLoading) {
+      const fetchProducts = async () => {
+        setProductsLoading(true);
+        setProductsError(null);
+        const result = await getProducts(1); // 1 = production Stripe
+        if (result.success && result.data) {
+          setProducts(result.data);
+        } else {
+          setProductsError(result.error?.message || "Failed to load products");
+        }
+        setProductsLoading(false);
+      };
+      fetchProducts();
+    }
+  }, [currentStep, products.length, productsLoading]);
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -289,10 +330,9 @@ function OnboardingPageContent() {
             invity_number: invity_number || undefined,
           };
 
-          // Note: We don't await this to avoid blocking the flow
-          createManualUser(manualUserData).catch((err) => {
-            console.log("Manual user creation failed:", err);
-          });
+          // Await and store the response to check status later
+          const response = await createManualUser(manualUserData);
+          setManualUserResponse(response);
         } catch (error) {
           console.error("Error creating user:", error);
           // Continue with flow even if user creation fails
@@ -323,10 +363,20 @@ function OnboardingPageContent() {
         : formData.mobile || "";
 
     // Prepare form data with attribution (matching API_SPECIFICATION.md format)
+    // Convert age to number (validation ensures it's a valid integer between 18-120)
+    const ageNumber = parseInt(formData.age, 10);
+
+    // Split full name into first_name and last_name (same as createManualUser)
+    const nameParts = formData.fullName.trim().split(/\s+/);
+    const first_name = nameParts[0] || "";
+    const last_name = nameParts.slice(1).join(" ") || "";
+
     const submissionData: OnboardingSubmissionData = {
       fullName: formData.fullName,
+      first_name,
+      last_name,
       gender: formData.gender,
-      age: formData.age,
+      age: ageNumber,
       nationality: formData.nationality,
       mobile: mobile, // Combined phone in international format
       email: formData.email || undefined,
@@ -359,11 +409,12 @@ function OnboardingPageContent() {
       console.log("Form submitted successfully:", result);
 
       setTimeout(() => {
-        // Check if nationality requires review (Indian, Pakistani, Egyptian)
-        if (requiresReview()) {
+        // Check API response status - if "pending", show payment page, otherwise show success page
+        const status = manualUserResponse?.data?.status;
+        if (status === "pending") {
           setCurrentStep(11); // Review page with payment plans
         } else {
-          setCurrentStep(10); // Standard confirmation
+          setCurrentStep(10); // Success page with approved message
         }
         setIsAnimating(false);
       }, 300);
@@ -388,27 +439,8 @@ function OnboardingPageContent() {
       !formData.nationality ||
       !formData.phoneCode ||
       !formData.mobile ||
-      !formData.email ||
       !formData.instagram
     ) {
-      return false;
-    }
-
-    // Validate full name length (2-100 characters)
-    const fullNameLength = formData.fullName.trim().length;
-    if (fullNameLength < 2 || fullNameLength > 100) {
-      return false;
-    }
-
-    // Validate age (18-120)
-    const ageNum = parseInt(formData.age, 10);
-    if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
-      return false;
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) {
       return false;
     }
 
@@ -431,38 +463,51 @@ function OnboardingPageContent() {
   };
 
   const isStep2aValid = () => formData.musicTaste.length > 0;
-  const isStep2bValid = () => {
-    const djLength = formData.favoriteDJ.trim().length;
-    return djLength >= 2 && djLength <= 100;
-  };
+  const isStep2bValid = () => !!formData.favoriteDJ;
   const isStep2cValid = () => formData.favoritePlacesDubai.length > 0;
-  const isStep2dValid = () => {
-    const festivalsLength = formData.festivalsBeenTo.trim().length;
-    return festivalsLength >= 2 && festivalsLength <= 500;
-  };
-  const isStep2eValid = () => {
-    const festivalsLength = formData.festivalsWantToGo.trim().length;
-    return festivalsLength >= 2 && festivalsLength <= 500;
-  };
+  const isStep2dValid = () => !!formData.festivalsBeenTo;
+  const isStep2eValid = () => !!formData.festivalsWantToGo;
   const isStep2fValid = () => !!formData.nightlifeFrequency;
-  const isStep2gValid = () => {
-    const length = formData.idealNightOut.trim().length;
-    return length >= 10 && length <= 1000;
+  const isStep2gValid = () => true; // Optional field
+
+  // Handle Stripe checkout
+  const handleStripeCheckout = async (priceId: string) => {
+    setIsProcessingPayment(true);
+    try {
+      // Initialize Stripe
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+      if (!stripe) {
+        throw new Error("Stripe failed to load");
+      }
+
+      // Redirect to Stripe Checkout
+      const { error } = await stripe.redirectToCheckout({
+        mode: "subscription",
+        lineItems: [{ price: priceId, quantity: 1 }],
+        successUrl: `${window.location.origin}/onboarding?payment=success`,
+        cancelUrl: `${window.location.origin}/onboarding?payment=cancel`,
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert(error instanceof Error ? error.message : "Payment failed. Please try again.");
+      setIsProcessingPayment(false);
+    }
   };
 
-  // Check if user's nationality requires review
-  const requiresReview = () => {
-    if (!formData.nationality || countries.length === 0) return false;
-    const selectedCountry = countries.find(
-      (c) => c.id.toString() === formData.nationality
-    );
-    if (!selectedCountry) return false;
-    const countryName = selectedCountry.name.toLowerCase();
-    return (
-      countryName.includes("india") ||
-      countryName.includes("pakistan") ||
-      countryName.includes("egypt")
-    );
+  // Format price based on currency
+  const formatPrice = (amount: number, currency: string = "usd") => {
+    const currencySymbols: Record<string, string> = {
+      usd: "$",
+      aed: "AED ",
+      eur: "€",
+      gbp: "£",
+    };
+    const symbol = currencySymbols[currency.toLowerCase()] || currency.toUpperCase() + " ";
+    return `${symbol}${amount.toFixed(2)}`;
   };
 
   const getProgress = () => {
@@ -593,6 +638,15 @@ function OnboardingPageContent() {
             {/* Left Section - Subscribe to the good life, Benefits, Partners */}
             <div className="flex-1 flex flex-col px-4 sm:px-6 py-6 sm:py-8 lg:py-8 lg:border-r border-white/10 overflow-y-auto">
               <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full space-y-4 sm:space-y-5 lg:space-y-6 py-4 sm:py-6">
+                {/* Puravida Logo */}
+                <div className="text-center animate-fade-in mb-4">
+                  <img
+                    src="/assets/puravida-main-logo.png"
+                    alt="PuraVida"
+                    className="h-12 sm:h-16 md:h-20 mx-auto object-contain"
+                  />
+                </div>
+
                 {/* Hero Title */}
                 <div className="text-center animate-fade-in">
                   <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight px-2">
@@ -950,8 +1004,6 @@ function OnboardingPageContent() {
                     }
                     className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
                     placeholder="Your name"
-                    minLength={2}
-                    maxLength={100}
                     required
                   />
                 </div>
@@ -969,8 +1021,6 @@ function OnboardingPageContent() {
                     <option value="">Choose...</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
                   </select>
                 </div>
 
@@ -981,11 +1031,43 @@ function OnboardingPageContent() {
                   <input
                     type="number"
                     value={formData.age}
-                    onChange={(e) => updateFormData("age", e.target.value)}
+                    onChange={(e) => {
+                      // Only allow integers (no decimals)
+                      const value = e.target.value.replace(/[^0-9]/g, "");
+                      // Allow empty string or valid integers (allow typing intermediate values like "1" or "2" while typing "25")
+                      if (value === "" || parseInt(value, 10) <= 120) {
+                        updateFormData("age", value);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      // Prevent decimal point, negative sign, and scientific notation
+                      if (
+                        e.key === "." ||
+                        e.key === "-" ||
+                        e.key === "e" ||
+                        e.key === "E" ||
+                        e.key === "+"
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Validate on blur - ensure final value is between 18-120
+                      const value = e.target.value.replace(/[^0-9]/g, "");
+                      const ageNum = parseInt(value, 10);
+                      if (
+                        value &&
+                        (isNaN(ageNum) || ageNum < 18 || ageNum > 120)
+                      ) {
+                        // Reset to empty if invalid
+                        updateFormData("age", "");
+                      }
+                    }}
                     className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
                     placeholder="25"
                     min="18"
                     max="120"
+                    step="1"
                     required
                   />
                 </div>
@@ -1087,7 +1169,7 @@ function OnboardingPageContent() {
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Email <span className="text-red-500">*</span>
+                    Email
                   </label>
                   <input
                     type="email"
@@ -1100,9 +1182,7 @@ function OnboardingPageContent() {
                       trackFieldInteraction("email", currentStep, "blur")
                     }
                     className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
-                    placeholder="you@example.com"
-                    maxLength={255}
-                    required
+                    placeholder="you@example.com (optional)"
                   />
                 </div>
               </div>
@@ -1126,7 +1206,6 @@ function OnboardingPageContent() {
                     }
                     className="w-full pl-10 pr-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
                     placeholder="username"
-                    maxLength={100}
                     required
                   />
                 </div>
@@ -1322,7 +1401,7 @@ function OnboardingPageContent() {
               }}
               className={`px-4 py-4 text-sm font-bold border-2 transition-all duration-200 rounded-xl transform hover:scale-110 active:scale-95 ${
                 formData.musicTaste.includes(genre)
-                  ? "bg-white text-black border-black shadow-lg scale-105"
+                  ? "bg-black text-white border-black shadow-lg scale-105"
                   : "bg-white text-black border-gray-300 hover:border-black hover:shadow-md"
               }`}
             >
@@ -1337,14 +1416,16 @@ function OnboardingPageContent() {
             onChange={(e) => updateFormData("musicTasteOther", e.target.value)}
             placeholder="What else? 🎶"
             className="w-full mt-3 px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl font-medium"
-            maxLength={100}
           />
         )}
         {formData.musicTaste.filter((g) => g !== "Other").length > 0 && (
           <p className="text-sm text-black font-bold flex items-center justify-center gap-2 animate-bounce-in">
             <span className="text-lg">✨</span>
             <span>
-              {formData.musicTaste.filter((g) => g !== "Other").length} genres
+              {formData.musicTaste.filter((g) => g !== "Other").length}{" "}
+              {formData.musicTaste.filter((g) => g !== "Other").length === 1
+                ? "genre"
+                : "genres"}{" "}
               selected!
             </span>
           </p>
@@ -1358,17 +1439,15 @@ function OnboardingPageContent() {
   if (currentStep === 3) {
     return renderQuestionStep(
       3,
-      "Who's your DJ crush? 🎧",
+      "Who is your fav DJ 🎧",
       "Drop a name that makes you lose it",
-      "🎹",
+      "🎧",
       <input
         type="text"
         value={formData.favoriteDJ}
         onChange={(e) => updateFormData("favoriteDJ", e.target.value)}
-        placeholder="e.g., David Guetta, Amelie Lens, Black Coffee..."
+        placeholder="e.g., Black Coffee, Bedouin, Keinemusic, Marco Carola..."
         className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl hover:border-gray-400 text-center text-lg font-bold"
-        minLength={2}
-        maxLength={100}
         required
       />,
       isStep2bValid
@@ -1400,7 +1479,7 @@ function OnboardingPageContent() {
               }}
               className={`px-4 py-4 text-sm font-bold border-2 transition-all duration-200 rounded-xl transform hover:scale-110 active:scale-95 ${
                 formData.favoritePlacesDubai.includes(place)
-                  ? "bg-white text-black border-black shadow-lg scale-105"
+                  ? "bg-black text-white border-black shadow-lg scale-105"
                   : "bg-white text-black border-gray-300 hover:border-black hover:shadow-md"
               }`}
             >
@@ -1417,7 +1496,6 @@ function OnboardingPageContent() {
             }
             placeholder="What's the spot? 🎉"
             className="w-full mt-3 px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl font-medium"
-            maxLength={100}
           />
         )}
         {formData.favoritePlacesDubai.filter((p) => p !== "Other").length >
@@ -1426,7 +1504,10 @@ function OnboardingPageContent() {
             <span className="text-lg">🔥</span>
             <span>
               {formData.favoritePlacesDubai.filter((p) => p !== "Other").length}{" "}
-              places selected!
+              {formData.favoritePlacesDubai.filter((p) => p !== "Other").length === 1
+                ? "place"
+                : "places"}{" "}
+              selected!
             </span>
           </p>
         )}
@@ -1446,10 +1527,8 @@ function OnboardingPageContent() {
         value={formData.festivalsBeenTo}
         onChange={(e) => updateFormData("festivalsBeenTo", e.target.value)}
         rows={5}
-        placeholder="e.g., Coachella 2023, Tomorrowland, Ultra Miami, Burning Man..."
+        placeholder="e.g., Burning Man, Coachella, Tomorrowland, Ultra Music Festival, Miami Music Conference, Middle Beast, Exit Festival, Groove on the Grass, BPM, Untold..."
         className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl resize-none hover:border-gray-400 text-base font-medium"
-        minLength={2}
-        maxLength={500}
         required
       />,
       isStep2dValid
@@ -1467,10 +1546,8 @@ function OnboardingPageContent() {
         value={formData.festivalsWantToGo}
         onChange={(e) => updateFormData("festivalsWantToGo", e.target.value)}
         rows={5}
-        placeholder="e.g., Burning Man, Glastonbury, EDC Las Vegas, Sziget..."
+        placeholder="e.g., Burning Man, Coachella, Tomorrowland, Ultra Music Festival, Miami Music Conference, Middle Beast, Exit Festival, Groove on the Grass, BPM, Untold..."
         className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl resize-none hover:border-gray-400 text-base font-medium"
-        minLength={2}
-        maxLength={500}
         required
       />,
       isStep2eValid
@@ -1491,12 +1568,12 @@ function OnboardingPageContent() {
         required
       >
         <option value="">Choose your vibe...</option>
-        <option value="Daily">Daily 🔥</option>
-        <option value="3-4 times a week">3-4 times a week</option>
-        <option value="Weekly">Weekly</option>
-        <option value="2-3 times a month">2-3 times a month</option>
-        <option value="Monthly">Monthly</option>
-        <option value="Rarely">Rarely</option>
+        <option value="daily">Daily 🔥</option>
+        <option value="few-times-week">A few times a week</option>
+        <option value="weekly">Weekly</option>
+        <option value="few-times-month">A few times a month</option>
+        <option value="monthly">Monthly</option>
+        <option value="rarely">Rarely</option>
       </select>,
       isStep2fValid
     );
@@ -1504,57 +1581,18 @@ function OnboardingPageContent() {
 
   // Step 8: Ideal Night Out
   if (currentStep === 8) {
-    const idealNightOutLength = formData.idealNightOut.trim().length;
-    const minLength = 10;
-    const maxLength = 1000;
-    const isValid =
-      idealNightOutLength >= minLength && idealNightOutLength <= maxLength;
-
     return renderQuestionStep(
       8,
       "Describe your perfect night 🌟",
-      "Paint us a picture! What's the vibe?",
+      "Paint us a picture! What's the vibe? (Optional)",
       "✨",
-      <div className="space-y-3">
-        <textarea
-          value={formData.idealNightOut}
-          onChange={(e) => updateFormData("idealNightOut", e.target.value)}
-          rows={6}
-          placeholder="Tell us about your perfect night... What makes it special? Who are you with? What's the vibe? Where are you?"
-          className={`w-full px-6 py-5 border-2 bg-white text-black focus:outline-none focus:ring-4 transition-all duration-200 rounded-2xl resize-none text-base font-medium ${
-            idealNightOutLength > 0 && !isValid
-              ? "border-red-500 focus:border-red-500 focus:ring-red-200"
-              : "border-gray-300 focus:border-black focus:ring-gray-200 hover:border-gray-400"
-          }`}
-          minLength={10}
-          maxLength={1000}
-          required
-        />
-        <div className="flex items-center justify-between text-sm">
-          <div>
-            {idealNightOutLength > 0 && !isValid && (
-              <p className="text-red-500 font-medium">
-                {idealNightOutLength < minLength
-                  ? `Please write at least ${minLength} characters`
-                  : idealNightOutLength > maxLength
-                  ? `Maximum ${maxLength} characters allowed`
-                  : ""}
-              </p>
-            )}
-          </div>
-          <p
-            className={`font-medium ${
-              isValid
-                ? "text-gray-600"
-                : idealNightOutLength > 0
-                ? "text-red-500"
-                : "text-gray-400"
-            }`}
-          >
-            {idealNightOutLength}/{maxLength} characters
-          </p>
-        </div>
-      </div>,
+      <textarea
+        value={formData.idealNightOut}
+        onChange={(e) => updateFormData("idealNightOut", e.target.value)}
+        rows={6}
+        placeholder="Tell us about your perfect night... What makes it special? Who are you with? What's the vibe? Where are you? (Optional)"
+        className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl resize-none hover:border-gray-400 text-base font-medium"
+      />,
       isStep2gValid
     );
   }
@@ -1652,10 +1690,16 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 10: Confirmation
+  // Step 10: Confirmation (Approved)
   if (currentStep === 10) {
+    const iosAppUrl = "https://apps.apple.com/us/app/id6744160016";
+    const androidAppUrl = "https://play.google.com/store/apps/details?id=com.puravida.events";
+    const whatsappNumber = "971526782867";
+    const contactEmail = "hello@thisispuravida.com";
+    const contactPhone = "+971 52 678 2867";
+
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center px-4 relative overflow-hidden">
+      <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
         {/* Celebration confetti effect */}
         <div className="absolute inset-0">
           <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
@@ -1677,7 +1721,7 @@ function OnboardingPageContent() {
           {/* Success Icon */}
           <div className="flex justify-center animate-bounce-in">
             <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-2xl animate-scale-in">
-              <div className="text-7xl">🎉</div>
+              <div className="text-7xl">✅</div>
             </div>
           </div>
 
@@ -1688,16 +1732,74 @@ function OnboardingPageContent() {
           >
             <div className="space-y-6">
               <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight animate-fade-in">
-                You're in! 🎊
+                Request Approved! 🎊
               </h2>
               <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
               <p className="text-2xl md:text-3xl text-black font-bold max-w-xl mx-auto">
-                Our concierge will reach out within 24 hours
+                Your request has been approved!
               </p>
-              <p className="text-lg text-gray-600 max-w-md mx-auto font-medium">
-                Thanks for sharing your vibe with us! We're stoked to welcome
-                you to the PuraVida family. Get ready for an epic experience! 🔥
+              <p className="text-lg md:text-xl text-gray-700 max-w-2xl mx-auto font-medium">
+                You will receive your activation code shortly by WhatsApp. Meanwhile, you can install the app to get started.
               </p>
+
+              {/* App Download Links */}
+              <div className="pt-6 space-y-4">
+                <h3 className="text-xl md:text-2xl font-bold text-black">
+                  Download the App
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <a
+                    href={iosAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-3 bg-black text-white px-6 py-4 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
+                    onClick={() => trackButtonClick("Download iOS App", 10, "app-download")}
+                  >
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C1.79 15.25 2.18 8.94 9.5 8.43c.86 1.96 2.04 3.74 3.5 3.72 1.45-.01 2.14-.9 3.5-.87 1.18.02 2.02.84 2.77 1.72-2.44 1.51-2.98 4.18-1.38 6.36.82 1.11 1.84 1.89 3.16 1.85-.84-2.58.48-3.74 1.4-4.84zM12.03.98c.13 1.17-.8 2.18-1.98 2.31-1.16.13-2.18-.79-2.31-1.96C7.6.16 8.53-.84 9.7-.97c1.18-.13 2.18.8 2.33 1.95z"/>
+                    </svg>
+                    Download for iOS
+                  </a>
+                  <a
+                    href={androidAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-3 bg-black text-white px-6 py-4 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
+                    onClick={() => trackButtonClick("Download Android App", 10, "app-download")}
+                  >
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.551 0 .9993.4482.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.8558l-1.9973-3.4592c-.1468-.2548-.4554-.4043-.7844-.4043-.329 0-.6376.1495-.7844.4043L12.8947 8.4887C11.6393 8.0485 10.3078 7.8502 8.9709 7.9002c-1.3369.05-2.6684.2483-3.9238.6885l-2.687-4.6522c-.1468-.2549-.4554-.4043-.7844-.4043-.329 0-.6376.1495-.7844.4043-.1468.2548-.1468.5798 0 .8346L4.205 9.6716c-.6964.7539-1.1125 1.7234-1.1826 2.7441-.0701 1.0206.2099 2.0308.8033 2.8802l-1.0057 1.7428c-.1468.2548-.1468.5798 0 .8346.1468.2548.4554.4043.7844.4043.329 0 .6376-.1495.7844-.4043l1.0027-1.7361c.6954.7539 1.6745 1.2062 2.7203 1.2062 1.0458 0 2.0249-.4523 2.7203-1.2062l5.2045 9.0147c.1468.2548.4554.4043.7844.4043.329 0 .6376-.1495.7844-.4043.1468-.2548.1468-.5798 0-.8346l-1.0027-1.7361c.5934-.8494.8734-1.8596.8033-2.8802-.0701-1.0207-.4862-1.9902-1.1826-2.7441l2.689-4.6586c.1468-.2548.1468-.5798 0-.8346-.1468-.2549-.4554-.4043-.7844-.4043-.329 0-.6376.1495-.7844.4043"/>
+                    </svg>
+                    Download for Android
+                  </a>
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div className="pt-6 border-t border-gray-200">
+                <p className="text-base md:text-lg text-gray-700 font-medium mb-4">
+                  For any problems faced, please contact our team:
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center text-base md:text-lg">
+                  <a
+                    href={`mailto:${contactEmail}`}
+                    className="text-black hover:text-gray-700 font-bold underline transition-colors"
+                    onClick={() => trackButtonClick("Contact Email", 10, "contact")}
+                  >
+                    📧 {contactEmail}
+                  </a>
+                  <span className="hidden sm:inline text-gray-400">•</span>
+                  <a
+                    href={`https://wa.me/${whatsappNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-black hover:text-gray-700 font-bold underline transition-colors"
+                    onClick={() => trackButtonClick("Contact WhatsApp", 10, "contact")}
+                  >
+                    💬 {contactPhone}
+                  </a>
+                </div>
+              </div>
 
               <div className="pt-4 flex items-center justify-center gap-2 text-2xl">
                 <span>✨</span>
@@ -1711,35 +1813,60 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 11: Review Page with Payment Plans (for Indian, Pakistani, Egyptian)
+  // Step 11: Review Page with Payment Plans
   if (currentStep === 11) {
-    const paymentPlans = [
-      {
-        name: "Annual",
-        price: "AED 2,999",
-        period: "per year",
-        savings: "Save 17%",
-        popular: false,
-        features: [
-          "Full membership access",
-          "Priority guest list",
-          "Exclusive events",
-          "24/7 concierge support",
-        ],
-      },
-      {
-        name: "Monthly",
-        price: "AED 299",
-        period: "per month",
-        savings: null,
-        popular: true,
-        features: [
-          "Full membership access",
-          "Priority guest list",
-          "Exclusive events",
-          "24/7 concierge support",
-        ],
-      },
+    // Build payment plans from API products (only male pricing)
+    const paymentPlans: Array<{
+      name: string;
+      price: string;
+      period: string;
+      savings: string | null;
+      popular: boolean;
+      priceId: string;
+      originalPrice?: string;
+      percentage?: number;
+    }> = [];
+
+    // Process products to create payment plans (only male pricing)
+    products.forEach((product) => {
+      const currency = product.currency_type || "usd";
+      
+      // Monthly plan (male only)
+      if (product.monthly?.male) {
+        const monthly = product.monthly.male;
+        paymentPlans.push({
+          name: "Monthly",
+          price: formatPrice(monthly.amount, currency),
+          period: "per month",
+          savings: monthly.original_price ? `Save ${Math.round(((parseFloat(monthly.original_price) - monthly.amount) / parseFloat(monthly.original_price)) * 100)}%` : null,
+          popular: !product.yearly?.male, // Popular if no yearly option or if monthly is the only option
+          priceId: monthly.price_id,
+          originalPrice: monthly.original_price,
+        });
+      }
+
+      // Yearly plan (male only)
+      if (product.yearly?.male) {
+        const yearly = product.yearly.male;
+        paymentPlans.push({
+          name: "Annual",
+          price: formatPrice(yearly.amount, currency),
+          period: "per year",
+          savings: yearly.percentage ? `Save ${yearly.percentage}%` : yearly.original_price ? `Save ${Math.round(((parseFloat(yearly.original_price) - yearly.amount) / parseFloat(yearly.original_price)) * 100)}%` : null,
+          popular: true, // Yearly is usually more popular due to savings
+          priceId: yearly.price_id,
+          originalPrice: yearly.original_price,
+          percentage: yearly.percentage,
+        });
+      }
+    });
+
+    // Default features
+    const defaultFeatures = [
+      "Full membership access",
+      "Priority guest list",
+      "Exclusive events",
+      "24/7 concierge support",
     ];
 
     return (
@@ -1794,71 +1921,108 @@ function OnboardingPageContent() {
               <h3 className="text-3xl md:text-4xl font-bold text-black mb-6">
                 Choose Your Membership Plan
               </h3>
-              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                {paymentPlans.map((plan, index) => (
-                  <div
-                    key={plan.name}
-                    className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
-                      plan.popular
-                        ? "border-black shadow-xl scale-105"
-                        : "border-gray-300"
-                    }`}
-                    style={{ animationDelay: `${index * 0.1}s` }}
+              
+              {productsLoading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+                  <p className="mt-4 text-gray-600 font-medium">Loading plans...</p>
+                </div>
+              ) : productsError ? (
+                <div className="text-center py-12">
+                  <p className="text-red-600 font-medium mb-4">{productsError}</p>
+                  <button
+                    onClick={() => {
+                      setProductsLoading(true);
+                      setProductsError(null);
+                      getProducts(1).then((result) => {
+                        if (result.success && result.data) {
+                          setProducts(result.data);
+                        } else {
+                          setProductsError(result.error?.message || "Failed to load products");
+                        }
+                        setProductsLoading(false);
+                      });
+                    }}
+                    className="text-black underline hover:text-gray-700 font-medium"
                   >
-                    {plan.popular && (
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-2 rounded-full text-sm font-bold">
-                        MOST POPULAR
-                      </div>
-                    )}
-                    {plan.savings && (
-                      <div className="absolute -top-3 -right-3 bg-green-500 text-white px-4 py-2 rounded-full text-xs font-bold rotate-12 shadow-lg">
-                        {plan.savings}
-                      </div>
-                    )}
-                    <div className="space-y-6">
-                      <div>
-                        <h4 className="text-2xl font-bold text-black mb-2">
-                          {plan.name}
-                        </h4>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-4xl md:text-5xl font-bold text-black">
-                            {plan.price}
-                          </span>
-                          <span className="text-gray-600 font-medium">
-                            {plan.period}
-                          </span>
+                    Try again
+                  </button>
+                </div>
+              ) : paymentPlans.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-600 font-medium">No payment plans available at the moment.</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                  {paymentPlans.map((plan, index) => (
+                    <div
+                      key={`${plan.name}-${index}`}
+                      className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+                        plan.popular
+                          ? "border-black shadow-xl scale-105"
+                          : "border-gray-300"
+                      }`}
+                      style={{ animationDelay: `${index * 0.1}s` }}
+                    >
+                      {plan.popular && (
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-2 rounded-full text-sm font-bold">
+                          MOST POPULAR
                         </div>
+                      )}
+                      {plan.savings && (
+                        <div className="absolute -top-3 -right-3 bg-green-500 text-white px-4 py-2 rounded-full text-xs font-bold rotate-12 shadow-lg">
+                          {plan.savings}
+                        </div>
+                      )}
+                      <div className="space-y-6">
+                        <div>
+                          <h4 className="text-2xl font-bold text-black mb-2">
+                            {plan.name}
+                          </h4>
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            {plan.originalPrice && (
+                              <span className="text-lg text-gray-400 line-through">
+                                {formatPrice(parseFloat(plan.originalPrice), products[0]?.currency_type || "usd")}
+                              </span>
+                            )}
+                            <span className="text-4xl md:text-5xl font-bold text-black">
+                              {plan.price}
+                            </span>
+                            <span className="text-gray-600 font-medium">
+                              {plan.period}
+                            </span>
+                          </div>
+                        </div>
+                        <ul className="space-y-3 text-left">
+                          {defaultFeatures.map((feature, idx) => (
+                            <li
+                              key={idx}
+                              className="flex items-center gap-3 text-gray-700"
+                            >
+                              <span className="text-green-500 text-xl">✓</span>
+                              <span className="font-medium">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <button
+                          disabled={isProcessingPayment}
+                          className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${
+                            plan.popular
+                              ? "bg-black text-white hover:bg-gray-900 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                              : "bg-gray-100 text-black hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          }`}
+                          onClick={() => {
+                            trackButtonClick(`Select ${plan.name} Plan`, 11, "payment");
+                            handleStripeCheckout(plan.priceId);
+                          }}
+                        >
+                          {isProcessingPayment ? "Processing..." : `Select ${plan.name} Plan`}
+                        </button>
                       </div>
-                      <ul className="space-y-3 text-left">
-                        {plan.features.map((feature, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-center gap-3 text-gray-700"
-                          >
-                            <span className="text-green-500 text-xl">✓</span>
-                            <span className="font-medium">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <button
-                        className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${
-                          plan.popular
-                            ? "bg-black text-white hover:bg-gray-900 hover:scale-105"
-                            : "bg-gray-100 text-black hover:bg-gray-200"
-                        }`}
-                        onClick={() => {
-                          // TODO: Implement payment flow
-                          alert(
-                            `Payment integration coming soon for ${plan.name} plan`
-                          );
-                        }}
-                      >
-                        Select {plan.name} Plan
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Refund Policy */}

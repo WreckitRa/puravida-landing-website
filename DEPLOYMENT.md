@@ -101,6 +101,161 @@ Make sure to set these in Vercel Dashboard → Settings → Environment Variable
 
 ---
 
+## 🖥️ Hostinger Deployment
+
+Hostinger supports Node.js applications through their VPS or Business/Cloud hosting plans. The `output: 'standalone'` configuration in `next.config.ts` creates a minimal production build optimized for self-hosting.
+
+### Prerequisites
+
+- Hostinger VPS, Business, or Cloud hosting plan with Node.js support
+- SSH access to your server
+- Node.js 18+ installed on your server
+- PM2 (recommended) for process management
+
+### Step 1: Build Locally (Optional) or on Server
+
+**Option A: Build on your local machine**
+
+```bash
+# Install dependencies
+npm install
+
+# Build the application
+npm run build
+
+# The standalone build will be in .next/standalone/
+```
+
+**Option B: Build directly on Hostinger server**
+
+```bash
+# SSH into your Hostinger server
+ssh your-username@your-server-ip
+
+# Clone your repository
+git clone https://github.com/your-username/puravida-new-website.git
+cd puravida-new-website
+
+# Install dependencies
+npm install
+
+# Build the application
+npm run build
+```
+
+### Step 2: Set Up Environment Variables
+
+Create a `.env.production` file on your server:
+
+```bash
+nano .env.production
+```
+
+Add your environment variables:
+
+```env
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
+NEXT_PUBLIC_API_URL=https://api.puravida.events
+```
+
+### Step 3: Install PM2 (Process Manager)
+
+```bash
+npm install -g pm2
+```
+
+### Step 4: Start the Application
+
+The standalone build creates a minimal server. Start it with:
+
+```bash
+# From the project root
+node .next/standalone/server.js
+```
+
+Or with PM2 (recommended for production):
+
+```bash
+pm2 start .next/standalone/server.js --name puravida-website
+pm2 save
+pm2 startup  # Follow instructions to enable auto-start on reboot
+```
+
+### Step 5: Configure Reverse Proxy (Nginx)
+
+If you're using Nginx, create a configuration file:
+
+```bash
+sudo nano /etc/nginx/sites-available/puravida
+```
+
+Add:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable the site:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/puravida /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Step 6: Set Up SSL Certificate
+
+Use Let's Encrypt (free SSL):
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+### Important Notes for Hostinger
+
+- **Port Configuration**: Next.js runs on port 3000 by default. Make sure this port is open in your firewall
+- **Node.js Version**: Ensure Node.js 18+ is installed (`node --version`)
+- **Memory**: Next.js standalone builds are optimized but still require adequate server resources
+- **Static Files**: The standalone build includes all necessary files in `.next/standalone/`
+- **Environment Variables**: Make sure all `NEXT_PUBLIC_*` variables are set before building
+
+### Troubleshooting
+
+**Check if the app is running:**
+```bash
+pm2 status
+pm2 logs puravida-website
+```
+
+**Restart the application:**
+```bash
+pm2 restart puravida-website
+```
+
+**Check port availability:**
+```bash
+netstat -tulpn | grep 3000
+```
+
+---
+
 ## 🔄 Alternative: Other Platforms
 
 ### Netlify

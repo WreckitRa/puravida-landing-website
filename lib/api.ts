@@ -22,8 +22,10 @@ const API_BASE_URL = getApiBaseUrl();
 export interface OnboardingSubmissionData {
   // Personal Information
   fullName: string;
+  first_name: string;
+  last_name: string;
   gender: string;
-  age: string;
+  age: number;
   nationality: string;
   mobile: string; // Combined phone code + mobile in international format (e.g., "+971501234567")
   email?: string; // Optional in form, but API spec shows it as required - backend should handle
@@ -272,6 +274,11 @@ export interface CreateManualUserResponse {
   message?: string;
   data?: {
     id?: number;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    wait_list_count?: number;
+    status?: string; // "pending" or other statuses
     [key: string]: any;
   };
   error?: {
@@ -320,6 +327,87 @@ export async function createManualUser(
     };
   } catch (error) {
     console.error("API Error creating manual user:", error);
+    return {
+      success: false,
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Network error. Please try again.",
+      },
+    };
+  }
+}
+
+export interface ProductPricing {
+  price_id: string;
+  amount: number;
+  original_price?: string;
+  percentage?: number;
+}
+
+export interface ProductPricingByGender {
+  male?: ProductPricing;
+  female?: ProductPricing;
+}
+
+export interface Product {
+  product_id: string;
+  name: string;
+  description?: string;
+  images?: string[];
+  monthly?: ProductPricingByGender;
+  yearly?: ProductPricingByGender;
+  currency_type?: string;
+  offer_message?: string;
+}
+
+export interface GetProductsResponse {
+  success: boolean;
+  data?: Product[];
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+/**
+ * Get products from the API
+ * @param stripeType - 1 for production Stripe (default), other values for test mode
+ */
+export async function getProducts(
+  stripeType: number = 1
+): Promise<GetProductsResponse> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/get-products?stripe_type=${stripeType}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const result: GetProductsResponse = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || {
+          code: "UNKNOWN_ERROR",
+          message: "Failed to fetch products",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data || [],
+    };
+  } catch (error) {
+    console.error("API Error fetching products:", error);
     return {
       success: false,
       error: {

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { trackButtonClick } from "@/lib/analytics";
 import { useState } from "react";
 import ContactModal from "./ContactModal";
+import packageJson from "../package.json";
 
 interface FooterProps {
   variant?: "default" | "compact";
@@ -66,6 +67,9 @@ export default function Footer({
                 PuraVida™ and the PuraVida logo are trademarks or registered
                 trademarks of PuraVida Inc. All other trademarks are the
                 property of their respective owners.
+              </p>
+              <p className="text-white/20 text-xs mt-3">
+                v{packageJson.version}
               </p>
             </div>
           </div>
@@ -158,6 +162,9 @@ export default function Footer({
                 Contact Us
               </button>
             </nav>
+            <div className="text-center pt-4">
+              <p className="text-white/20 text-xs">v{packageJson.version}</p>
+            </div>
           </div>
         </div>
       </footer>

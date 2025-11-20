@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getWhoInvited } from "@/lib/storage";
 import { trackButtonClick } from "@/lib/analytics";
+import packageJson from "../package.json";
 
 interface HeaderProps {
   showInviteBanner?: boolean;
@@ -35,17 +36,25 @@ export default function Header({
           />
         </Link>
 
-        {/* Desktop Invite Banner */}
-        {showInviteBanner && whoInvited && (
-          <div className="hidden sm:block">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2">
-              <span className="text-white text-sm font-bold">
-                <span className="text-red-400">{whoInvited}</span> has invited
-                you
-              </span>
+        {/* Right side: Version and Invite Banner */}
+        <div className="flex items-center gap-4">
+          {/* Version Number - Always visible */}
+          <span className="text-white/30 text-xs font-mono">
+            v{packageJson.version}
+          </span>
+
+          {/* Desktop Invite Banner */}
+          {showInviteBanner && whoInvited && (
+            <div className="hidden sm:block">
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2">
+                <span className="text-white text-sm font-bold">
+                  <span className="text-red-400">{whoInvited}</span> has invited
+                  you
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Mobile Invite Banner */}

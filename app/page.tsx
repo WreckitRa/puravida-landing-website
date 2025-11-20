@@ -9,12 +9,16 @@ import StructuredData from "@/components/StructuredData";
 import { decodeAndStoreInviteFromUrl, getWhoInvited } from "@/lib/storage";
 import { initAppLinking } from "@/lib/app-linking";
 import ContactModal from "@/components/ContactModal";
+import { getProducts, type Product } from "@/lib/api";
+import { APP_VERSION } from "@/lib/config";
 
 function LandingPageContent() {
   const searchParams = useSearchParams();
   const [isVisible, setIsVisible] = useState(false);
   const [whoInvited, setWhoInvited] = useState<string | null>(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
 
   useEffect(() => {
     // Initialize app deep linking (for mobile app redirects)
@@ -43,6 +47,32 @@ function LandingPageContent() {
       setIsVisible(true);
     });
   }, [searchParams]);
+
+  // Fetch products on mount
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setProductsLoading(true);
+      const result = await getProducts(1); // 1 = production Stripe
+      if (result.success && result.data) {
+        setProducts(result.data);
+      }
+      setProductsLoading(false);
+    };
+    fetchProducts();
+  }, []);
+
+  // Format price based on currency
+  const formatPrice = (amount: number, currency: string = "usd") => {
+    const currencySymbols: Record<string, string> = {
+      usd: "$",
+      aed: "AED ",
+      eur: "€",
+      gbp: "£",
+    };
+    const symbol =
+      currencySymbols[currency.toLowerCase()] || currency.toUpperCase() + " ";
+    return `${symbol}${amount.toFixed(2)}`;
+  };
 
   // Partner logos
   const partners = [
@@ -134,28 +164,88 @@ function LandingPageContent() {
                 <a
                   href="#how-it-works"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={() => trackButtonClick("What is PuraVida", 0, "nav")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    trackButtonClick("What is PuraVida", 0, "nav");
+                    const element = document.getElementById("how-it-works");
+                    if (element) {
+                      const headerOffset = 100;
+                      const elementPosition =
+                        element.getBoundingClientRect().top;
+                      const offsetPosition =
+                        elementPosition + window.pageYOffset - headerOffset;
+                      window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
                 >
                   What is PuraVida?
                 </a>
                 <a
                   href="#how-it-works"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={() => trackButtonClick("How it works", 0, "nav")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    trackButtonClick("How it works", 0, "nav");
+                    const element = document.getElementById("how-it-works");
+                    if (element) {
+                      const headerOffset = 100;
+                      const elementPosition =
+                        element.getBoundingClientRect().top;
+                      const offsetPosition =
+                        elementPosition + window.pageYOffset - headerOffset;
+                      window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
                 >
                   How it works?
                 </a>
                 <a
                   href="#benefits"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={() => trackButtonClick("Benefits", 0, "nav")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    trackButtonClick("Benefits", 0, "nav");
+                    const element = document.getElementById("benefits");
+                    if (element) {
+                      const headerOffset = 100;
+                      const elementPosition =
+                        element.getBoundingClientRect().top;
+                      const offsetPosition =
+                        elementPosition + window.pageYOffset - headerOffset;
+                      window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
                 >
                   Benefits
                 </a>
                 <a
                   href="#memberships"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={() => trackButtonClick("Memberships", 0, "nav")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    trackButtonClick("Memberships", 0, "nav");
+                    const element = document.getElementById("memberships");
+                    if (element) {
+                      const headerOffset = 100;
+                      const elementPosition =
+                        element.getBoundingClientRect().top;
+                      const offsetPosition =
+                        elementPosition + window.pageYOffset - headerOffset;
+                      window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
                 >
                   Memberships
                 </a>
@@ -446,7 +536,7 @@ function LandingPageContent() {
         {/* How It Works Section */}
         <section
           id="how-it-works"
-          className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-20 lg:py-32"
+          className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-20 lg:py-32 scroll-mt-24"
         >
           <div className="text-center mb-16 animate-fade-in">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
@@ -530,7 +620,7 @@ function LandingPageContent() {
         {/* Benefits Section */}
         <section
           id="benefits"
-          className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-20 lg:py-32 bg-white/5 backdrop-blur-sm"
+          className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-20 lg:py-32 bg-white/5 backdrop-blur-sm scroll-mt-24"
         >
           <div className="text-center mb-16 animate-fade-in">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
@@ -603,7 +693,7 @@ function LandingPageContent() {
         {/* Memberships Section */}
         <section
           id="memberships"
-          className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-20 lg:py-32"
+          className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-20 lg:py-32 scroll-mt-24"
         >
           <div className="text-center mb-16 animate-fade-in">
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
@@ -615,88 +705,261 @@ function LandingPageContent() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 lg:gap-12 max-w-5xl mx-auto">
-            {/* Male Membership */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 lg:p-10 hover:bg-white/10 transition-all duration-300 animate-fade-in">
-              <div className="text-center space-y-6">
-                <div className="text-5xl mb-4">👔</div>
-                <h3 className="text-3xl font-bold text-white mb-2">Male</h3>
-                <div className="space-y-4">
-                  <div className="bg-white/10 rounded-xl p-6">
-                    <div className="text-white/60 text-sm mb-1">Monthly</div>
-                    <div className="text-4xl font-bold text-white">
-                      150 <span className="text-xl">AED</span>
-                    </div>
-                    <div className="text-white/60 text-xs mt-1">per month</div>
-                  </div>
-                  <div className="bg-gradient-to-br from-[#E91180]/20 to-[#EB1E44]/20 border border-[#E91180]/30 rounded-xl p-6 relative">
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#E91180] to-[#EB1E44] text-white text-xs font-bold px-4 py-1 rounded-full">
-                      BEST VALUE
-                    </div>
-                    <div className="text-white/60 text-sm mb-1">Annual</div>
-                    <div className="text-4xl font-bold text-white">
-                      1,500 <span className="text-xl">AED</span>
-                    </div>
-                    <div className="text-white/60 text-xs mt-1">per year</div>
-                    <div className="text-green-400 text-sm font-medium mt-2">
-                      Save 300 AED/year
-                    </div>
-                  </div>
-                </div>
-                <Link
-                  href="/onboarding"
-                  className="block w-full bg-white text-black px-6 py-4 rounded-xl font-bold text-center hover:bg-gray-100 transition-all duration-300 hover:scale-105"
-                  onClick={() =>
-                    trackButtonClick("Join Male Membership", 0, "memberships")
-                  }
-                >
-                  Join Now
-                </Link>
-              </div>
+          {productsLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              <p className="mt-4 text-white/60 font-medium">
+                Loading pricing...
+              </p>
             </div>
+          ) : (
+            <>
+              {/* Discount Message Banner - Show once for both memberships */}
+              {(() => {
+                const firstProduct = products.find((p) => p.offer_message);
+                const offerMessage = firstProduct?.offer_message;
 
-            {/* Female Membership */}
-            <div
-              className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 lg:p-10 hover:bg-white/10 transition-all duration-300 animate-fade-in"
-              style={{ animationDelay: "0.1s" }}
-            >
-              <div className="text-center space-y-6">
-                <div className="text-5xl mb-4">👗</div>
-                <h3 className="text-3xl font-bold text-white mb-2">Female</h3>
-                <div className="space-y-4">
-                  <div className="bg-white/10 rounded-xl p-6">
-                    <div className="text-white/60 text-sm mb-1">Monthly</div>
-                    <div className="text-4xl font-bold text-white">
-                      100 <span className="text-xl">AED</span>
-                    </div>
-                    <div className="text-white/60 text-xs mt-1">per month</div>
-                  </div>
-                  <div className="bg-gradient-to-br from-[#E91180]/20 to-[#EB1E44]/20 border border-[#E91180]/30 rounded-xl p-6 relative">
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#E91180] to-[#EB1E44] text-white text-xs font-bold px-4 py-1 rounded-full">
-                      BEST VALUE
-                    </div>
-                    <div className="text-white/60 text-sm mb-1">Annual</div>
-                    <div className="text-4xl font-bold text-white">
-                      1,000 <span className="text-xl">AED</span>
-                    </div>
-                    <div className="text-white/60 text-xs mt-1">per year</div>
-                    <div className="text-green-400 text-sm font-medium mt-2">
-                      Save 200 AED/year
+                return offerMessage ? (
+                  <div className="max-w-5xl mx-auto mb-8 animate-fade-in">
+                    <div className="bg-gradient-to-r from-[#E91180]/30 to-[#EB1E44]/30 border border-[#E91180]/50 rounded-xl p-4 md:p-6">
+                      <div className="flex items-center justify-center gap-3">
+                        <span className="text-2xl md:text-3xl">🎉</span>
+                        <p className="text-white font-bold text-base md:text-lg text-center">
+                          {offerMessage}
+                        </p>
+                        <span className="text-2xl md:text-3xl">✨</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <Link
-                  href="/onboarding"
-                  className="block w-full bg-white text-black px-6 py-4 rounded-xl font-bold text-center hover:bg-gray-100 transition-all duration-300 hover:scale-105"
-                  onClick={() =>
-                    trackButtonClick("Join Female Membership", 0, "memberships")
-                  }
-                >
-                  Join Now
-                </Link>
+                ) : null;
+              })()}
+
+              <div className="grid md:grid-cols-2 gap-8 lg:gap-12 max-w-5xl mx-auto">
+                {/* Male Membership */}
+                {(() => {
+                  const maleProduct = products.find(
+                    (p) => p.monthly?.male || p.yearly?.male
+                  );
+                  const currency = maleProduct?.currency_type || "aed";
+                  const monthly = maleProduct?.monthly?.male;
+                  const yearly = maleProduct?.yearly?.male;
+
+                  return (
+                    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 lg:p-10 hover:bg-white/10 transition-all duration-300 animate-fade-in">
+                      <div className="text-center space-y-6">
+                        <div className="text-5xl mb-4">👔</div>
+                        <h3 className="text-3xl font-bold text-white mb-2">
+                          Male
+                        </h3>
+
+                        <div className="space-y-4">
+                          {/* Monthly Plan */}
+                          {monthly && (
+                            <div className="bg-white/10 rounded-xl p-6 relative">
+                              {monthly.original_price && (
+                                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                  SALE{" "}
+                                  {Math.round(
+                                    ((parseFloat(monthly.original_price) -
+                                      monthly.amount) /
+                                      parseFloat(monthly.original_price)) *
+                                      100
+                                  )}
+                                  % OFF
+                                </div>
+                              )}
+                              <div className="text-white/60 text-sm mb-1">
+                                Monthly
+                              </div>
+                              <div className="flex items-baseline justify-center gap-2 flex-wrap">
+                                {monthly.original_price && (
+                                  <span className="text-xl text-white/40 line-through">
+                                    {formatPrice(
+                                      parseFloat(monthly.original_price),
+                                      currency
+                                    )}
+                                  </span>
+                                )}
+                                <div className="text-4xl font-bold text-white">
+                                  {formatPrice(monthly.amount, currency)}
+                                </div>
+                              </div>
+                              <div className="text-white/60 text-xs mt-1">
+                                per month
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Annual Plan */}
+                          {yearly && monthly && (
+                            <div className="bg-gradient-to-br from-[#E91180]/20 to-[#EB1E44]/20 border border-[#E91180]/30 rounded-xl p-6 relative">
+                              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#E91180] to-[#EB1E44] text-white text-xs font-bold px-4 py-1 rounded-full">
+                                BEST VALUE
+                              </div>
+                              <div className="text-white/60 text-sm mb-1">
+                                Annual
+                              </div>
+                              <div className="flex items-baseline justify-center gap-2 flex-wrap">
+                                {yearly.original_price && (
+                                  <span className="text-xl text-white/40 line-through">
+                                    {formatPrice(
+                                      parseFloat(yearly.original_price),
+                                      currency
+                                    )}
+                                  </span>
+                                )}
+                                <div className="text-4xl font-bold text-white">
+                                  {formatPrice(yearly.amount, currency)}
+                                </div>
+                              </div>
+                              <div className="text-white/60 text-xs mt-1">
+                                per year
+                              </div>
+                              <div className="mt-2 text-green-400 text-sm font-medium">
+                                Save{" "}
+                                {Math.round(
+                                  ((monthly.amount * 12 - yearly.amount) /
+                                    (monthly.amount * 12)) *
+                                    100
+                                )}
+                                % vs monthly
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <Link
+                          href="/onboarding"
+                          className="block w-full bg-white text-black px-6 py-4 rounded-xl font-bold text-center hover:bg-gray-100 transition-all duration-300 hover:scale-105"
+                          onClick={() =>
+                            trackButtonClick(
+                              "Join Male Membership",
+                              0,
+                              "memberships"
+                            )
+                          }
+                        >
+                          Join Now
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Female Membership */}
+                {(() => {
+                  const femaleProduct = products.find(
+                    (p) => p.monthly?.female || p.yearly?.female
+                  );
+                  const currency = femaleProduct?.currency_type || "aed";
+                  const monthly = femaleProduct?.monthly?.female;
+                  const yearly = femaleProduct?.yearly?.female;
+
+                  return (
+                    <div
+                      className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 lg:p-10 hover:bg-white/10 transition-all duration-300 animate-fade-in"
+                      style={{ animationDelay: "0.1s" }}
+                    >
+                      <div className="text-center space-y-6">
+                        <div className="text-5xl mb-4">👗</div>
+                        <h3 className="text-3xl font-bold text-white mb-2">
+                          Female
+                        </h3>
+
+                        <div className="space-y-4">
+                          {/* Monthly Plan */}
+                          {monthly && (
+                            <div className="bg-white/10 rounded-xl p-6 relative">
+                              {monthly.original_price && (
+                                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                  SALE{" "}
+                                  {Math.round(
+                                    ((parseFloat(monthly.original_price) -
+                                      monthly.amount) /
+                                      parseFloat(monthly.original_price)) *
+                                      100
+                                  )}
+                                  % OFF
+                                </div>
+                              )}
+                              <div className="text-white/60 text-sm mb-1">
+                                Monthly
+                              </div>
+                              <div className="flex items-baseline justify-center gap-2 flex-wrap">
+                                {monthly.original_price && (
+                                  <span className="text-xl text-white/40 line-through">
+                                    {formatPrice(
+                                      parseFloat(monthly.original_price),
+                                      currency
+                                    )}
+                                  </span>
+                                )}
+                                <div className="text-4xl font-bold text-white">
+                                  {formatPrice(monthly.amount, currency)}
+                                </div>
+                              </div>
+                              <div className="text-white/60 text-xs mt-1">
+                                per month
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Annual Plan */}
+                          {yearly && monthly && (
+                            <div className="bg-gradient-to-br from-[#E91180]/20 to-[#EB1E44]/20 border border-[#E91180]/30 rounded-xl p-6 relative">
+                              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#E91180] to-[#EB1E44] text-white text-xs font-bold px-4 py-1 rounded-full">
+                                BEST VALUE
+                              </div>
+                              <div className="text-white/60 text-sm mb-1">
+                                Annual
+                              </div>
+                              <div className="flex items-baseline justify-center gap-2 flex-wrap">
+                                {yearly.original_price && (
+                                  <span className="text-xl text-white/40 line-through">
+                                    {formatPrice(
+                                      parseFloat(yearly.original_price),
+                                      currency
+                                    )}
+                                  </span>
+                                )}
+                                <div className="text-4xl font-bold text-white">
+                                  {formatPrice(yearly.amount, currency)}
+                                </div>
+                              </div>
+                              <div className="text-white/60 text-xs mt-1">
+                                per year
+                              </div>
+                              <div className="mt-2 text-green-400 text-sm font-medium">
+                                Save{" "}
+                                {Math.round(
+                                  ((monthly.amount * 12 - yearly.amount) /
+                                    (monthly.amount * 12)) *
+                                    100
+                                )}
+                                % vs monthly
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <Link
+                          href="/onboarding"
+                          className="block w-full bg-white text-black px-6 py-4 rounded-xl font-bold text-center hover:bg-gray-100 transition-all duration-300 hover:scale-105"
+                          onClick={() =>
+                            trackButtonClick(
+                              "Join Female Membership",
+                              0,
+                              "memberships"
+                            )
+                          }
+                        >
+                          Join Now
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
           <div className="text-center mt-12">
             <p className="text-white/60 text-sm">
@@ -746,6 +1009,7 @@ function LandingPageContent() {
                   trademarks of PuraVida Inc. All other trademarks are the
                   property of their respective owners
                 </p>
+                <p className="text-white/40 text-xs mt-4">v{APP_VERSION}</p>
               </div>
 
               {/* Footer Navigation */}
