@@ -15,20 +15,36 @@ DirectorySlash Off
   RewriteEngine On
   RewriteBase /
 
-  # Redirect /app/invite to /ihaveinvite (for static export compatibility)
-  RewriteRule ^app/invite/?$ /ihaveinvite [R=301,L]
+  # Handle /app/invite with device detection
+  # Android → Google Play Store
+  # iOS → Apple App Store
+  # Desktop → /ihaveinvite
+  RewriteCond %{REQUEST_URI} ^/app/invite/?$
+  RewriteCond %{HTTP_USER_AGENT} android [NC]
+  RewriteRule ^app/invite/?$ https://play.google.com/store/apps/details?id=com.puravida.events [R=307,L]
+  
+  RewriteCond %{REQUEST_URI} ^/app/invite/?$
+  RewriteCond %{HTTP_USER_AGENT} (iphone|ipod|ipad) [NC]
+  RewriteRule ^app/invite/?$ https://apps.apple.com/us/app/id6744160016 [R=307,L]
+  
+  # Desktop/other devices → /ihaveinvite
+  RewriteCond %{REQUEST_URI} ^/app/invite/?$
+  RewriteRule ^app/invite/?$ /ihaveinvite [R=307,L]
 
   # Handle Next.js App Router static export
   # Next.js creates routes as: /route/index.html
   
-  # First, handle requests WITH trailing slash - try to serve index.html
+  # Skip rewrite if the file already exists
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule . - [L]
+
+  # Handle requests WITH trailing slash - try to serve index.html
   # This prevents the "Forbidden" error when Apache tries to list directories
   RewriteCond %{REQUEST_URI} ^(.+)/$
-  RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{DOCUMENT_ROOT}%1/index.html -f
   RewriteRule ^(.+)/$ $1/index.html [L]
 
-  # If requesting a file that doesn't exist (without trailing slash), try adding /index.html
+  # If requesting without trailing slash, try adding /index.html
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_URI} !(.*)/$

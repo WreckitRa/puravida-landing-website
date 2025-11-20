@@ -314,8 +314,16 @@ sudo tail -f /var/log/apache2/puravida-error.log
 **Common Apache Issues:**
 
 1. **"Not Found" errors:** Ensure `mod_rewrite` is enabled and `AllowOverride All` is set
-2. **"Forbidden" errors on reload:** The `.htaccess` file includes `DirectorySlash Off` to prevent this
+2. **"Forbidden" errors on reload:** 
+   - The `.htaccess` file includes `DirectorySlash Off` to prevent this
+   - Check file permissions: `sudo chmod -R 755 /var/www/html/puravida-website`
+   - Check ownership: `sudo chown -R www-data:www-data /var/www/html/puravida-website`
+   - Verify Apache can read the directory: `sudo chmod 755 /var/www/html/puravida-website`
 3. **Routes not working:** Verify the `.htaccess` file is in the document root and Apache can read it
+4. **`/app/invite` not redirecting correctly:**
+   - On mobile (Android/iOS): Should redirect to app stores
+   - On desktop: Should redirect to `/ihaveinvite`
+   - Verify user agent detection is working by checking Apache access logs
 
 **Check Nginx configuration (if using Nginx):**
 
