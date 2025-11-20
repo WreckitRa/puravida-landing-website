@@ -92,31 +92,31 @@ echo -e "${YELLOW}Step 6: Building the project...${NC}"
 echo -e "${YELLOW}Note: Make sure all NEXT_PUBLIC_* environment variables are set before building${NC}"
 npm run build
 
-# Step 7: Deploy to server
-echo -e "${YELLOW}Step 7: Deploying to server...${NC}"
-echo -e "Copying files to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}"
-
-# Check if build files exist (static export creates 'out' directory)
-if [ ! -d "out" ]; then
+# Step 7: Static export fix (delete folders with matching .html files)
+echo -e "${YELLOW}Fixing Next.js export folder structure...${NC}"
+if [ -d "out" ]; then
+    find out -maxdepth 1 -type f -name "*.html" | while read -r htmlfile; do
+        base=$(basename "$htmlfile" .html)
+        if [ -d "out/$base" ]; then
+            echo -e "⚠️  Removing conflicting folder: out/$base"
+            rm -rf "out/$base"
+        fi
+    done
+    echo -e "${GREEN}Static export sanitized (no conflicting folders).${NC}"
+else
     echo -e "${RED}Error: 'out' directory not found. Build may have failed.${NC}"
-    echo -e "${RED}Make sure next.config.ts has 'output: export' configured.${NC}"
     exit 1
 fi
 
-# Create necessary directory on server
-echo -e "Creating directory on server..."
+# Step 8: Deploy to server
+echo -e "${YELLOW}Step 8: Deploying to server...${NC}"
+echo -e "Copying files to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}"
+
 ssh ${SERVER_USER}@${SERVER_IP} "mkdir -p ${SERVER_PATH}"
 
-# Copy static files to server using rsync (faster than scp, supports compression and incremental updates)
-echo -e "Transferring static files (this may take a few minutes)..."
-echo -e "Copying out/ directory (all static files)..."
 rsync -avz --progress --delete out/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}
 
-# Set proper permissions for Apache
 echo -e "${YELLOW}Setting file permissions...${NC}"
 ssh ${SERVER_USER}@${SERVER_IP} "chmod -R 755 ${SERVER_PATH} && chown -R www-data:www-data ${SERVER_PATH} 2>/dev/null || chown -R \$(whoami):\$(whoami) ${SERVER_PATH}"
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
-echo -e "${GREEN}Files have been deployed to ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}${NC}"
-echo -e "${YELLOW}Note: Make sure Apache has mod_rewrite enabled and .htaccess files are allowed${NC}"
-
