@@ -2084,7 +2084,7 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 10: Confirmation (Approved)
+  // Step 10: Confirmation (Approved or Pending)
   if (currentStep === 10) {
     const iosAppUrl = "https://apps.apple.com/us/app/id6744160016";
     const androidAppUrl =
@@ -2092,6 +2092,11 @@ function OnboardingPageContent() {
     const whatsappNumber = "971526782867";
     const contactEmail = "hello@thisispuravida.com";
     const contactPhone = "+971 52 678 2867";
+
+    // Check user status - if pending and hasn't paid, show pending message
+    const userStatus = manualUserResponse?.data?.status;
+    const isPending = userStatus === "pending" && !hasPaid;
+    const isApproved = userStatus !== "pending" || hasPaid;
 
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
@@ -2116,7 +2121,7 @@ function OnboardingPageContent() {
           {/* Success Icon */}
           <div className="flex justify-center animate-bounce-in">
             <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-2xl animate-scale-in">
-              <div className="text-7xl">✅</div>
+              <div className="text-7xl">{isPending ? "⏳" : "✅"}</div>
             </div>
           </div>
 
@@ -2127,7 +2132,11 @@ function OnboardingPageContent() {
           >
             <div className="space-y-6">
               <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight animate-fade-in">
-                {hasPaid ? "Payment Successful! 🎉" : "Welcome to PuraVida! ❤️"}
+                {hasPaid 
+                  ? "Payment Successful! 🎉" 
+                  : isPending 
+                    ? "Application Submitted! ⏳" 
+                    : "Welcome to PuraVida! ❤️"}
               </h2>
               <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
               
@@ -2149,19 +2158,29 @@ function OnboardingPageContent() {
               )}
               
               <p className="text-2xl md:text-3xl text-black font-bold max-w-xl mx-auto">
-                {hasPaid ? "Your membership is being activated!" : "You're in! Add yourself to the guestlist 🎉"}
+                {hasPaid 
+                  ? "Your membership is being activated!" 
+                  : isPending 
+                    ? "Your application is under review 📋" 
+                    : "You're in! Add yourself to the guestlist 🎉"}
               </p>
               <p className="text-lg md:text-xl text-gray-700 max-w-2xl mx-auto font-medium">
                 {hasPaid 
                   ? "Your payment has been processed successfully. You'll receive your activation code shortly by WhatsApp, and your membership benefits will be available once your application is reviewed."
-                  : "Your request has been approved! You'll receive your activation code shortly by WhatsApp."
+                  : isPending
+                    ? "Thank you for submitting your application! Our team is currently reviewing it. We'll get back to you soon via WhatsApp with your activation code once your application is approved."
+                    : "Your request has been approved! You'll receive your activation code shortly by WhatsApp."
                 }
-                <br />
-                <span className="font-bold text-black">
-                  Download the app now
-                </span>{" "}
-                to start accessing exclusive guestlists, priority bookings, and
-                curated parties at Dubai's hottest venues.
+                {!isPending && (
+                  <>
+                    <br />
+                    <span className="font-bold text-black">
+                      Download the app now
+                    </span>{" "}
+                    to start accessing exclusive guestlists, priority bookings, and
+                    curated parties at Dubai's hottest venues.
+                  </>
+                )}
               </p>
 
               {/* Fast Track Option - Show if user hasn't paid */}
@@ -2194,11 +2213,12 @@ function OnboardingPageContent() {
                 </div>
               )}
 
-              {/* App Download Links */}
-              <div className="pt-6 space-y-4">
-                <h3 className="text-xl md:text-2xl font-bold text-black">
-                  Get the App & Start Your Journey
-                </h3>
+              {/* App Download Links - Only show if approved (not pending) */}
+              {!isPending && (
+                <div className="pt-6 space-y-4">
+                  <h3 className="text-xl md:text-2xl font-bold text-black">
+                    Get the App & Start Your Journey
+                  </h3>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                   <a
                     href={iosAppUrl}
@@ -2252,6 +2272,7 @@ function OnboardingPageContent() {
                   </a>
                 </div>
               </div>
+              )}
 
               {/* Contact Info */}
               <div className="pt-6 border-t border-gray-200">

@@ -1,19 +1,29 @@
 RewriteEngine On
 RewriteBase /
 
-# 0. Handle /app/invite manually
-RewriteRule ^app/invite$ /ihaveinvite.html [L,R=302]
+# Prevent Apache from automatically adding trailing slashes
+DirectorySlash Off
 
-# 1. Serve file if exists
+# 0. Handle /app/invite manually (before trailing slash redirect)
+# Redirect to /ihaveinvite for desktop (mobile redirects handled server-side if needed)
+RewriteRule ^app/invite/?$ /ihaveinvite [L,R=301]
+
+# 1. Redirect trailing slashes to non-trailing versions (except root)
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/$
+RewriteRule ^(.+)/$ /$1 [L,R=301]
+
+# 2. Serve file if exists
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
-# 2. Clean URL → .html
-RewriteCond %{REQUEST_FILENAME} -d
+# 3. Clean URL → .html (for non-trailing slash URLs)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}.html -f
-RewriteRule ^(.+?)/?$ $1.html [L]
+RewriteRule ^(.+?)$ $1.html [L]
 
-# 3. SPA fallback
+# 4. SPA fallback
 RewriteCond %{REQUEST_FILENAME}.html !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
