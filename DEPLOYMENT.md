@@ -32,8 +32,10 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
      NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
      NEXT_PUBLIC_SITE_URL=https://your-domain.com
      NEXT_PUBLIC_API_URL=https://api.puravida.events
+     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxxxxxxxxxxxx
      ```
    - ⚠️ **IMPORTANT**: `NEXT_PUBLIC_API_URL` must use `https://` (not `http://`) to prevent mixed-content errors. The code will automatically convert HTTP to HTTPS, but it's best to set it correctly.
+   - **Stripe Setup**: See [STRIPE_SETUP.md](./STRIPE_SETUP.md) for complete Stripe Dashboard configuration guide.
    - (Optional) Add app store URLs if different from defaults:
      ```
      NEXT_PUBLIC_GOOGLE_PLAY_URL=https://play.google.com/...
@@ -87,11 +89,12 @@ Vercel is the fastest and easiest way to deploy Next.js apps. It's made by the c
 
 Make sure to set these in Vercel Dashboard → Settings → Environment Variables:
 
-| Variable                        | Description                      | Example                       |
-| ------------------------------- | -------------------------------- | ----------------------------- |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics 4 ID            | `G-XXXXXXXXXX`                |
-| `NEXT_PUBLIC_SITE_URL`          | Your production URL              | `https://puravida.com`        |
-| `NEXT_PUBLIC_API_URL`           | Backend API URL (must use HTTPS) | `https://api.puravida.events` |
+| Variable                             | Description                           | Example                       |
+| ------------------------------------ | ------------------------------------- | ----------------------------- |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID`      | Google Analytics 4 ID                 | `G-XXXXXXXXXX`                |
+| `NEXT_PUBLIC_SITE_URL`               | Your production URL                   | `https://puravida.com`        |
+| `NEXT_PUBLIC_API_URL`                | Backend API URL (must use HTTPS)      | `https://api.puravida.events` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe Publishable Key (for payments) | `pk_live_xxxxxxxxxxxxx`       |
 
 **Optional:**
 
@@ -210,11 +213,13 @@ sudo systemctl reload apache2
 ```
 
 **Important:** The `.htaccess` file from `public/.htaccess` is automatically copied to the root of the `out/` directory during build. Make sure:
+
 - `mod_rewrite` is enabled
 - `AllowOverride All` is set in your Apache configuration
 - The `.htaccess` file exists in the deployed directory
 
 **Verify `.htaccess` is deployed:**
+
 ```bash
 # On your server, check if .htaccess exists:
 ls -la /var/www/html/puravida-website/.htaccess
@@ -228,6 +233,7 @@ scp out/.htaccess deploy@your-server-ip:/var/www/html/puravida-website/.htaccess
 ```
 
 **Run diagnostic script:**
+
 ```bash
 # Copy the diagnostic script to your server and run it:
 scp check-apache.sh deploy@your-server-ip:~/
@@ -277,12 +283,14 @@ sudo systemctl reload nginx
 Use Let's Encrypt (free SSL):
 
 **For Apache:**
+
 ```bash
 sudo apt install certbot python3-certbot-apache
 sudo certbot --apache -d invite.puravida.events
 ```
 
 **For Nginx:**
+
 ```bash
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
@@ -334,7 +342,7 @@ sudo tail -f /var/log/apache2/puravida-error.log
 **Common Apache Issues:**
 
 1. **"Not Found" errors:** Ensure `mod_rewrite` is enabled and `AllowOverride All` is set
-2. **"Forbidden" errors on reload:** 
+2. **"Forbidden" errors on reload:**
    - The `.htaccess` file includes `DirectorySlash Off` to prevent this
    - Check file permissions: `sudo chmod -R 755 /var/www/html/puravida-website`
    - Check ownership: `sudo chown -R www-data:www-data /var/www/html/puravida-website`

@@ -38,6 +38,8 @@ import {
   type CreateManualUserResponse,
   getProducts,
   type Product,
+  createSubscription,
+  type CreateSubscriptionResponse,
 } from "@/lib/api";
 import { loadStripe } from "@stripe/stripe-js";
 
@@ -111,6 +113,8 @@ function OnboardingPageContent() {
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentIntentClientSecret, setPaymentIntentClientSecret] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAccount, setIsCheckingAccount] = useState(false);
@@ -578,10 +582,36 @@ function OnboardingPageContent() {
   const isStep2fValid = () => !!formData.nightlifeFrequency;
   const isStep2gValid = () => true; // Optional field
 
-  // Handle Stripe checkout
+  // Handle Stripe payment using backend API (matches mobile app approach)
+  // Uses Payment Element for web (equivalent to Payment Sheet on mobile)
   const handleStripeCheckout = async (priceId: string) => {
     setIsProcessingPayment(true);
     try {
+      // Get user ID from manual user response (user should be created in step 1)
+      const userId = manualUserResponse?.data?.id;
+      if (!userId) {
+        throw new Error("User not found. Please complete step 1 first.");
+      }
+
+      // Call backend API to create subscription (matches mobile app)
+      const subscriptionResponse = await createSubscription({
+        user_id: userId,
+        price_id: priceId,
+      });
+
+      if (!subscriptionResponse.success || !subscriptionResponse.data) {
+        throw new Error(
+          subscriptionResponse.error?.message || "Failed to create subscription"
+        );
+      }
+
+      const {
+        payment_intent,
+        ephemeral_key,
+        stripe_subscription_id,
+        customer_id,
+      } = subscriptionResponse.data;
+
       // Initialize Stripe
       const stripe = await loadStripe(
         process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
@@ -590,24 +620,42 @@ function OnboardingPageContent() {
         throw new Error("Stripe failed to load");
       }
 
-      // Redirect to Stripe Checkout
-      const { error } = await stripe.redirectToCheckout({
-        mode: "subscription",
-        lineItems: [{ price: priceId, quantity: 1 }],
-        successUrl: `${window.location.origin}/onboarding?payment=success`,
-        cancelUrl: `${window.location.origin}/onboarding?payment=cancel`,
-      });
-
-      if (error) {
-        throw error;
-      }
+      // Store payment intent for Payment Element
+      setPaymentIntentClientSecret(payment_intent.client_secret);
+      setShowPaymentModal(true);
+      
+      // Note: Payment Element will be rendered in a modal
+      // User will enter card details and confirm payment
+      // On success, we'll redirect to success page
+      
     } catch (error) {
       console.error("Payment error:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Payment failed. Please try again."
-      );
+
+      // Provide more helpful error messages
+      let errorMessage = "Payment failed. Please try again.";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+
+        // Check for common Stripe configuration errors
+        if (
+          error.message.includes("publishable") ||
+          error.message.includes("key")
+        ) {
+          errorMessage =
+            "Stripe publishable key is missing or invalid. Check NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY environment variable.";
+        } else if (
+          error.message.includes("price") ||
+          error.message.includes("product")
+        ) {
+          errorMessage =
+            "Product or price not found. Verify the price ID exists in Stripe Dashboard.";
+        } else if (error.message.includes("User not found")) {
+          errorMessage = error.message;
+        }
+      }
+
+      alert(errorMessage);
       setIsProcessingPayment(false);
     }
   };

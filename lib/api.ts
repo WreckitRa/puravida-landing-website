@@ -430,3 +430,72 @@ export async function getProducts(
     };
   }
 }
+
+export interface CreateSubscriptionData {
+  user_id: number;
+  price_id: string;
+}
+
+export interface CreateSubscriptionResponse {
+  success: boolean;
+  data?: {
+    payment_intent: {
+      client_secret: string;
+    };
+    ephemeral_key: string;
+    stripe_subscription_id: string;
+    customer_id: string;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+/**
+ * Create subscription via backend API (matches mobile app approach)
+ * Returns payment_intent.client_secret, ephemeral_key, stripe_subscription_id, customer_id
+ */
+export async function createSubscription(
+  data: CreateSubscriptionData
+): Promise<CreateSubscriptionResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/create-subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result: CreateSubscriptionResponse = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || {
+          code: "UNKNOWN_ERROR",
+          message: "Failed to create subscription",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+    };
+  } catch (error) {
+    console.error("API Error creating subscription:", error);
+    return {
+      success: false,
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Network error. Please try again.",
+      },
+    };
+  }
+}
