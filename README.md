@@ -98,6 +98,10 @@ Comprehensive SEO optimization with best practices. See [SEO.md](./SEO.md) for c
 
 Comprehensive analytics tracking with full UTM parameter support. See [ANALYTICS.md](./ANALYTICS.md) and [UTM_TRACKING.md](./UTM_TRACKING.md) for full documentation.
 
+**Quick Links:**
+- **[MARKETING_CHANNELS.md](./MARKETING_CHANNELS.md)** - Guide for creating tracked invite links for paid ads, Instagram stories, etc.
+- **[ANALYTICS_VERIFICATION.md](./ANALYTICS_VERIFICATION.md)** - Step-by-step guide to verify analytics is working on your live site
+
 **Key Metrics Tracked:**
 
 - Step views and completions
