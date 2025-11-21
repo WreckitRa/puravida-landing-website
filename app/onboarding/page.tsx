@@ -41,7 +41,7 @@ import {
   createSubscription,
   type CreateSubscriptionResponse,
 } from "@/lib/api";
-import { loadStripe } from "@stripe/stripe-js";
+import PaymentModal from "@/components/PaymentModal";
 
 type FormData = {
   // Step 1
@@ -658,21 +658,26 @@ function OnboardingPageContent() {
         customer_id,
       } = subscriptionResponse.data;
 
-      // Initialize Stripe
-      const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-      );
-      if (!stripe) {
-        throw new Error("Stripe failed to load");
+      // Get client_secret from response
+      // Backend may return: { data: { client_secret: "..." } } 
+      // Or: { data: { payment_intent: { client_secret: "..." } } }
+      const clientSecret = 
+        subscriptionResponse.data?.client_secret ||
+        payment_intent?.client_secret ||
+        (subscriptionResponse.data as any)?.client_secret;
+
+      if (!clientSecret) {
+        console.error("Full subscription response:", subscriptionResponse);
+        console.error("Payment intent object:", payment_intent);
+        throw new Error("Payment intent client secret not found in response. Check API response structure.");
       }
 
-      // Store payment intent for Payment Element
-      setPaymentIntentClientSecret(payment_intent.client_secret);
+      console.log("✅ Payment intent client secret received");
+
+      // Store payment intent client secret and show payment modal
+      setPaymentIntentClientSecret(clientSecret);
       setShowPaymentModal(true);
-      
-      // Note: Payment Element will be rendered in a modal
-      // User will enter card details and confirm payment
-      // On success, we'll redirect to success page
+      setIsProcessingPayment(false); // Modal will handle its own loading state
       
     } catch (error) {
       console.error("Payment error:", error);
@@ -2523,7 +2528,34 @@ function OnboardingPageContent() {
     );
   }
 
-  return null;
+  return (
+    <>
+      {/* Payment Modal */}
+      {showPaymentModal && paymentIntentClientSecret && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setPaymentIntentClientSecret(null);
+            setIsProcessingPayment(false);
+          }}
+          clientSecret={paymentIntentClientSecret}
+          customerName={formData.fullName || undefined}
+          onSuccess={() => {
+            // Payment succeeded - redirect to success page
+            setShowPaymentModal(false);
+            setPaymentIntentClientSecret(null);
+            window.location.href = `${window.location.origin}/onboarding?payment=success`;
+          }}
+          onError={(error) => {
+            // Error is already shown in modal, just close it
+            console.error("Payment error:", error);
+            // Keep modal open so user can try again or close manually
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 export default function OnboardingPage() {
