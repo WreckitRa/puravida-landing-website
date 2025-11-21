@@ -10,18 +10,29 @@ export default function GoogleAnalytics() {
 
   useEffect(() => {
     if (!measurementId) {
-      console.warn(
-        "Google Analytics Measurement ID not found. Set NEXT_PUBLIC_GA_MEASUREMENT_ID in your .env file."
+      console.error(
+        "❌ Google Analytics: Measurement ID not found!\n" +
+        "Set NEXT_PUBLIC_GA_MEASUREMENT_ID in your environment variables.\n" +
+        "Current value:", process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
       );
       return;
     }
 
     // Initialize GA
-    initGA(measurementId);
-    
-    // Debug logging in development
-    if (process.env.NODE_ENV === 'development') {
+    try {
+      initGA(measurementId);
       console.log('✅ Google Analytics initialized:', measurementId);
+      
+      // Verify it's actually loaded after a short delay
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.gtag) {
+          console.log('✅ Google Analytics script loaded successfully');
+        } else {
+          console.error('❌ Google Analytics script failed to load. Check network tab for errors.');
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('❌ Error initializing Google Analytics:', error);
     }
   }, [measurementId]);
 
@@ -29,11 +40,7 @@ export default function GoogleAnalytics() {
     if (measurementId && pathname) {
       // Track page view on route change
       trackPageView(pathname);
-      
-      // Debug logging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📊 Page view tracked:', pathname);
-      }
+      console.log('📊 Page view tracked:', pathname);
     }
   }, [pathname, measurementId]);
 

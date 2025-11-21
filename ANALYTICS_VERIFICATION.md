@@ -2,6 +2,8 @@
 
 This guide helps you verify that Google Analytics is working correctly on your live site (https://invite.puravida.events).
 
+**⚠️ If you see "Data collection isn't active" in Google Analytics, see [ANALYTICS_FIX.md](./ANALYTICS_FIX.md) for troubleshooting steps.**
+
 ## Quick Checklist
 
 - [ ] Google Analytics Measurement ID is set in environment variables
@@ -15,6 +17,7 @@ This guide helps you verify that Google Analytics is working correctly on your l
 ### Check Production Environment
 
 1. **If using Vercel:**
+
    - Go to your Vercel dashboard
    - Select your project
    - Go to **Settings → Environment Variables**
@@ -66,11 +69,13 @@ This guide helps you verify that Google Analytics is working correctly on your l
 ### Real-Time Test
 
 1. **Open Google Analytics:**
+
    - Go to [analytics.google.com](https://analytics.google.com)
    - Select your property
    - Go to **Reports → Realtime**
 
 2. **Visit your site:**
+
    - Open https://invite.puravida.events in a new tab
    - Navigate to different pages (/, /onboarding, /ihaveinvite)
 
@@ -87,9 +92,9 @@ This guide helps you verify that Google Analytics is working correctly on your l
 2. Open DevTools Console
 3. Type:
    ```javascript
-   window.gtag('event', 'test_event', {
-     event_category: 'test',
-     event_label: 'manual_test'
+   window.gtag("event", "test_event", {
+     event_category: "test",
+     event_label: "manual_test",
    });
    ```
 4. Check Google Analytics Real-Time → Events
@@ -163,10 +168,12 @@ This guide helps you verify that Google Analytics is working correctly on your l
 ### Issue 1: Analytics Not Loading
 
 **Symptoms:**
+
 - `window.gtag` is undefined
 - No requests to googletagmanager.com in Network tab
 
 **Solutions:**
+
 1. Check environment variable is set correctly
 2. Verify the variable name: `NEXT_PUBLIC_GA_MEASUREMENT_ID` (must start with `NEXT_PUBLIC_`)
 3. Rebuild and redeploy your site after setting environment variables
@@ -175,9 +182,11 @@ This guide helps you verify that Google Analytics is working correctly on your l
 ### Issue 2: Events Not Appearing
 
 **Symptoms:**
+
 - Script loads but events don't appear in GA4
 
 **Solutions:**
+
 1. Check browser console for errors
 2. Verify Measurement ID format: `G-XXXXXXXXXX` (not `UA-...`)
 3. Check if ad blockers are interfering (try incognito mode)
@@ -186,9 +195,11 @@ This guide helps you verify that Google Analytics is working correctly on your l
 ### Issue 3: Wrong Measurement ID
 
 **Symptoms:**
+
 - Events appear in wrong GA4 property
 
 **Solutions:**
+
 1. Double-check the Measurement ID in environment variables
 2. Verify it matches your GA4 property
 3. Rebuild and redeploy
@@ -196,9 +207,11 @@ This guide helps you verify that Google Analytics is working correctly on your l
 ### Issue 4: UTM Parameters Not Tracking
 
 **Symptoms:**
+
 - Traffic shows as "direct" instead of source/medium
 
 **Solutions:**
+
 1. Verify UTM parameters are in the URL: `?utm_source=...&utm_medium=...`
 2. Check attribution is initialized: `initAttribution()` is called
 3. Check localStorage: `localStorage.getItem('puravida_attribution')`
@@ -225,19 +238,19 @@ This guide helps you verify that Google Analytics is working correctly on your l
 
 ```javascript
 // Check if GA is loaded
-window.gtag ? '✅ GA loaded' : '❌ GA not loaded'
+window.gtag ? "✅ GA loaded" : "❌ GA not loaded";
 
 // Check dataLayer
-window.dataLayer
+window.dataLayer;
 
 // Check Measurement ID
-process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID // Only works in dev
+process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID; // Only works in dev
 
 // Manually send test event
-window.gtag('event', 'test', { test: true })
+window.gtag("event", "test", { test: true });
 
 // Check attribution
-localStorage.getItem('puravida_attribution')
+localStorage.getItem("puravida_attribution");
 ```
 
 ## Testing Checklist
@@ -281,16 +294,19 @@ Use this checklist to verify everything is working:
 ## Still Not Working?
 
 1. **Check the code:**
+
    - Verify `GoogleAnalytics` component is in `app/layout.tsx`
    - Check `lib/analytics.ts` for errors
    - Verify `initGA()` is being called
 
 2. **Check deployment:**
+
    - Environment variables are set in production
    - Site was rebuilt after setting variables
    - No build errors
 
 3. **Check browser:**
+
    - Try incognito mode (ad blockers disabled)
    - Try different browser
    - Clear cache and cookies
@@ -306,30 +322,33 @@ Run this in your browser console on https://invite.puravida.events:
 
 ```javascript
 // Quick analytics test
-console.log('=== Analytics Test ===');
-console.log('GA Loaded:', !!window.gtag);
-console.log('DataLayer:', window.dataLayer?.length || 0, 'events');
-console.log('Measurement ID:', process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'Not accessible in browser');
+console.log("=== Analytics Test ===");
+console.log("GA Loaded:", !!window.gtag);
+console.log("DataLayer:", window.dataLayer?.length || 0, "events");
+console.log(
+  "Measurement ID:",
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "Not accessible in browser"
+);
 
 // Send test event
 if (window.gtag) {
-  window.gtag('event', 'analytics_test', {
-    test_category: 'verification',
-    test_label: 'manual_test'
+  window.gtag("event", "analytics_test", {
+    test_category: "verification",
+    test_label: "manual_test",
   });
-  console.log('✅ Test event sent! Check GA4 Real-Time → Events');
+  console.log("✅ Test event sent! Check GA4 Real-Time → Events");
 } else {
-  console.log('❌ GA not loaded!');
+  console.log("❌ GA not loaded!");
 }
 ```
 
 ## Next Steps
 
 Once verified:
+
 1. Set up custom reports in GA4 for your key metrics
 2. Create conversion goals for onboarding completion
 3. Set up alerts for unusual traffic patterns
 4. Document your tracking setup for your team
 
 See `ANALYTICS.md` for full analytics documentation.
-

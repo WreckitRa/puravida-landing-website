@@ -268,6 +268,7 @@ export interface CreateManualUserData {
   address?: string;
   gender: string; // "1" for Man, "2" for Woman
   invity_number?: string;
+  source?: string;
 }
 
 export interface CreateManualUserResponse {

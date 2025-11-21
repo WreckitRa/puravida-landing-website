@@ -374,6 +374,7 @@ function OnboardingPageContent() {
             instagram_handle,
             gender: genderValue, // Use "1" or "2" format
             invity_number: invity_number || undefined,
+            source: "shortform-landing-page",
           };
 
           // Await and store the response to check status later

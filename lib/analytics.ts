@@ -15,28 +15,44 @@ declare global {
 
 // Initialize Google Analytics
 export const initGA = (measurementId: string) => {
-  if (typeof window === "undefined" || !measurementId) return;
+  if (typeof window === "undefined" || !measurementId) {
+    console.error("initGA: window is undefined or measurementId is missing");
+    return;
+  }
 
   // Prevent duplicate initialization
-  if (window.gtag) return;
+  if (window.gtag) {
+    console.warn("Google Analytics already initialized, skipping...");
+    return;
+  }
 
-  // Load gtag script
-  const script1 = document.createElement("script");
-  script1.async = true;
-  script1.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
-  document.head.appendChild(script1);
-
-  // Initialize dataLayer
+  // Initialize dataLayer first
   window.dataLayer = window.dataLayer || [];
   function gtag(...args: any[]) {
     window.dataLayer!.push(args);
   }
   window.gtag = gtag as any;
 
+  // Load gtag script
+  const script1 = document.createElement("script");
+  script1.async = true;
+  script1.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
+  script1.onerror = () => {
+    console.error("❌ Failed to load Google Analytics script. Check network connection and ad blockers.");
+  };
+  script1.onload = () => {
+    console.log("✅ Google Analytics script loaded from googletagmanager.com");
+  };
+  document.head.appendChild(script1);
+
+  // Configure GA
   gtag("js", new Date());
   gtag("config", measurementId, {
     page_path: window.location.pathname,
+    send_page_view: true,
   });
+  
+  console.log("✅ Google Analytics configured with Measurement ID:", measurementId);
 };
 
 // Track page views
