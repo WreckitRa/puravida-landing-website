@@ -455,19 +455,23 @@ export interface CreateSubscriptionResponse {
 
 /**
  * Create subscription via backend API (matches mobile app approach)
+ * Uses the public endpoint /api/create-subscription-for-user which accepts user_id
  * Returns payment_intent.client_secret, ephemeral_key, stripe_subscription_id, customer_id
  */
 export async function createSubscription(
   data: CreateSubscriptionData
 ): Promise<CreateSubscriptionResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/create-subscription`, {
+    const response = await fetch(`${API_BASE_URL}/api/create-subscription-for-user`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        user_id: data.user_id,
+        price_id: data.price_id,
+      }),
     });
 
     const result: CreateSubscriptionResponse = await response.json();
