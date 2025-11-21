@@ -115,6 +115,7 @@ function OnboardingPageContent() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentIntentClientSecret, setPaymentIntentClientSecret] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [hasPaid, setHasPaid] = useState(false); // Track if user has paid for fast track
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAccount, setIsCheckingAccount] = useState(false);
@@ -157,13 +158,14 @@ function OnboardingPageContent() {
     // Handle payment success/failure
     const paymentStatus = searchParams.get("payment");
     if (paymentStatus === "success") {
-      // Payment successful - show success message
-      alert("Payment successful! Your membership is being activated.");
+      // Payment successful - mark as paid and navigate to success page
+      setHasPaid(true);
       // Clean up URL
       window.history.replaceState({}, "", window.location.pathname);
+      // Navigate to success page (step 10) to show fast track message
+      setCurrentStep(10);
     } else if (paymentStatus === "cancel") {
-      // Payment cancelled
-      alert("Payment was cancelled. You can try again anytime.");
+      // Payment cancelled - stay on payment page
       // Clean up URL
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -651,33 +653,32 @@ function OnboardingPageContent() {
         );
       }
 
-      const {
-        payment_intent,
-        ephemeral_key,
-        stripe_subscription_id,
-        customer_id,
-      } = subscriptionResponse.data;
+      // Log full response for debugging
+      console.log("✅ Subscription created successfully:", subscriptionResponse);
 
-      // Get client_secret from response
-      // Backend may return: { data: { client_secret: "..." } } 
-      // Or: { data: { payment_intent: { client_secret: "..." } } }
+      // Extract client_secret from response
+      // API returns: { data: { client_secret: "...", payment_intent: { client_secret: "..." } } }
       const clientSecret = 
         subscriptionResponse.data?.client_secret ||
-        payment_intent?.client_secret ||
-        (subscriptionResponse.data as any)?.client_secret;
+        subscriptionResponse.data?.payment_intent?.client_secret ||
+        (subscriptionResponse.data as any)?.payment_intent?.client_secret;
+
+      console.log("Extracted client_secret:", clientSecret ? "Found" : "NOT FOUND");
+      console.log("Response data structure:", subscriptionResponse.data);
 
       if (!clientSecret) {
-        console.error("Full subscription response:", subscriptionResponse);
-        console.error("Payment intent object:", payment_intent);
+        console.error("❌ Full subscription response:", JSON.stringify(subscriptionResponse, null, 2));
         throw new Error("Payment intent client secret not found in response. Check API response structure.");
       }
 
-      console.log("✅ Payment intent client secret received");
+      console.log("✅ Payment intent client secret received, opening payment modal...");
 
       // Store payment intent client secret and show payment modal
       setPaymentIntentClientSecret(clientSecret);
       setShowPaymentModal(true);
       setIsProcessingPayment(false); // Modal will handle its own loading state
+      
+      console.log("✅ Modal state updated - showPaymentModal:", true, "clientSecret:", clientSecret.substring(0, 20) + "...");
       
     } catch (error) {
       console.error("Payment error:", error);
@@ -827,6 +828,30 @@ function OnboardingPageContent() {
 
     return (
       <>
+        {/* Payment Modal - Always render if needed */}
+        {showPaymentModal && paymentIntentClientSecret && (
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setPaymentIntentClientSecret(null);
+              setIsProcessingPayment(false);
+            }}
+            clientSecret={paymentIntentClientSecret}
+            customerName={formData.fullName || undefined}
+            onSuccess={() => {
+              // Payment succeeded - mark as paid and redirect to success page
+              setHasPaid(true);
+              setShowPaymentModal(false);
+              setPaymentIntentClientSecret(null);
+              window.location.href = `${window.location.origin}/onboarding?payment=success`;
+            }}
+            onError={(error) => {
+              // Error is already shown in modal
+              console.error("Payment error:", error);
+            }}
+          />
+        )}
         <StructuredData data={structuredData} />
         <div className="min-h-screen bg-black relative overflow-hidden">
           {/* Animated background elements */}
@@ -2102,15 +2127,35 @@ function OnboardingPageContent() {
           >
             <div className="space-y-6">
               <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight animate-fade-in">
-                Welcome to PuraVida! ❤️
+                {hasPaid ? "Payment Successful! 🎉" : "Welcome to PuraVida! ❤️"}
               </h2>
               <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
+              
+              {/* Fast Track Message - Show if user paid */}
+              {hasPaid && (
+                <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 text-white animate-fade-in">
+                  <div className="flex items-start gap-4 max-w-2xl mx-auto">
+                    <div className="text-4xl flex-shrink-0">⚡</div>
+                    <div className="text-left space-y-2">
+                      <h3 className="text-2xl md:text-3xl font-bold">
+                        Your Application is Now on Fast Track! 🚀
+                      </h3>
+                      <p className="text-lg md:text-xl text-gray-200">
+                        Thank you for your payment! Your membership subscription is now active, and our team will prioritize your application for faster review. You'll hear from us within 24 hours.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <p className="text-2xl md:text-3xl text-black font-bold max-w-xl mx-auto">
-                You're in! Add yourself to the guestlist 🎉
+                {hasPaid ? "Your membership is being activated!" : "You're in! Add yourself to the guestlist 🎉"}
               </p>
               <p className="text-lg md:text-xl text-gray-700 max-w-2xl mx-auto font-medium">
-                Your request has been approved! You'll receive your activation
-                code shortly by WhatsApp.
+                {hasPaid 
+                  ? "Your payment has been processed successfully. You'll receive your activation code shortly by WhatsApp, and your membership benefits will be available once your application is reviewed."
+                  : "Your request has been approved! You'll receive your activation code shortly by WhatsApp."
+                }
                 <br />
                 <span className="font-bold text-black">
                   Download the app now
@@ -2118,6 +2163,36 @@ function OnboardingPageContent() {
                 to start accessing exclusive guestlists, priority bookings, and
                 curated parties at Dubai's hottest venues.
               </p>
+
+              {/* Fast Track Option - Show if user hasn't paid */}
+              {!hasPaid && (
+                <div className="pt-6 pb-4">
+                  <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 text-white">
+                    <div className="flex items-start gap-4 max-w-2xl mx-auto">
+                      <div className="text-4xl flex-shrink-0">⚡</div>
+                      <div className="text-left space-y-4 flex-1">
+                        <div>
+                          <h3 className="text-2xl md:text-3xl font-bold mb-2">
+                            Fast-Track Your Review
+                          </h3>
+                          <p className="text-lg md:text-xl text-gray-200">
+                            Want to get approved faster? Subscribe to a membership plan and our team will prioritize your application. You'll hear from us within 24 hours!
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            trackButtonClick("Fast Track Payment", 10, "return-to-payment");
+                            setCurrentStep(11); // Go back to payment plans
+                          }}
+                          className="w-full sm:w-auto px-8 py-4 bg-white text-black rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300 hover:scale-105 shadow-lg"
+                        >
+                          View Membership Plans →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* App Download Links */}
               <div className="pt-6 space-y-4">
@@ -2298,6 +2373,7 @@ function OnboardingPageContent() {
     ];
 
     return (
+      <>
       <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
         {/* Animated background */}
         <div className="absolute inset-0">
@@ -2525,12 +2601,7 @@ function OnboardingPageContent() {
           </div>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <>
-      {/* Payment Modal */}
+      {/* Payment Modal - Render on top of payment step */}
       {showPaymentModal && paymentIntentClientSecret && (
         <PaymentModal
           isOpen={showPaymentModal}
@@ -2542,20 +2613,24 @@ function OnboardingPageContent() {
           clientSecret={paymentIntentClientSecret}
           customerName={formData.fullName || undefined}
           onSuccess={() => {
-            // Payment succeeded - redirect to success page
+            // Payment succeeded - mark as paid and show success
+            setHasPaid(true);
             setShowPaymentModal(false);
             setPaymentIntentClientSecret(null);
+            // Navigate to success page with payment success
             window.location.href = `${window.location.origin}/onboarding?payment=success`;
           }}
           onError={(error) => {
-            // Error is already shown in modal, just close it
+            // Error is already shown in modal
             console.error("Payment error:", error);
-            // Keep modal open so user can try again or close manually
           }}
         />
       )}
-    </>
-  );
+      </>
+    );
+  }
+
+  return null;
 }
 
 export default function OnboardingPage() {

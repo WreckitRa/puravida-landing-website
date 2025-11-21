@@ -438,16 +438,23 @@ export interface CreateSubscriptionData {
 }
 
 export interface CreateSubscriptionResponse {
-  success: boolean;
+  success?: boolean;
+  message?: string;
   data?: {
-    // Backend may return client_secret directly or nested in payment_intent
+    // Backend returns client_secret directly in data
     client_secret?: string;
+    // Also has payment_intent object with client_secret
     payment_intent?: {
-      client_secret: string;
+      id?: string;
+      client_secret?: string;
+      status?: string;
+      [key: string]: any;
     };
     ephemeral_key?: string;
     stripe_subscription_id?: string;
+    stripe_customer_id?: string;
     customer_id?: string;
+    requires_payment?: boolean;
     [key: string]: any; // Allow other fields
   };
   error?: {
