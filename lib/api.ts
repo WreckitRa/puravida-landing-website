@@ -272,10 +272,11 @@ export interface CreateManualUserData {
 }
 
 export interface CreateManualUserResponse {
-  success: boolean;
+  success?: boolean; // Optional since API might not always return it
   message?: string;
   data?: {
-    id?: number;
+    id?: number | string; // Can be number or UUID string
+    customer_id?: string | null; // Stripe customer ID (null initially)
     first_name?: string;
     last_name?: string;
     phone?: string;
@@ -432,7 +433,7 @@ export async function getProducts(
 }
 
 export interface CreateSubscriptionData {
-  user_id: number;
+  user_id: number | string; // Can be number or UUID string
   price_id: string;
 }
 

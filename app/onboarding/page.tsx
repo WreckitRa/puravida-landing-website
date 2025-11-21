@@ -588,14 +588,60 @@ function OnboardingPageContent() {
     setIsProcessingPayment(true);
     try {
       // Get user ID from manual user response (user should be created in step 1)
-      const userId = manualUserResponse?.data?.id;
+      // Note: The API response should include 'id' field, but if it doesn't, we'll use phone as fallback
+      console.log("Manual user response:", manualUserResponse);
+      console.log("Current step:", currentStep);
+      console.log("Response data:", manualUserResponse?.data);
+      
+      // Try to get user ID from response
+      // The backend returns 'id' (can be number or UUID string)
+      let userId = manualUserResponse?.data?.id;
+      
+      // If no ID, try alternative fields
       if (!userId) {
-        throw new Error("User not found. Please complete step 1 first.");
+        userId = 
+          manualUserResponse?.data?.user_id ||
+          (manualUserResponse?.data as any)?.userId;
       }
+      
+      // Convert to string if it's a number (backend might expect string)
+      const userIdString = userId ? String(userId) : null;
+      
+      if (!userId) {
+        // Check if user creation failed
+        if (manualUserResponse && !manualUserResponse.success) {
+          const errorMsg = manualUserResponse.error?.message || manualUserResponse.message || "User creation failed";
+          throw new Error(
+            `User creation failed: ${errorMsg}. Please go back to step 1 and try again.`
+          );
+        }
+        
+        // Check if we're on the right step
+        if (currentStep < 1) {
+          throw new Error("Please complete step 1 (personal information) before selecting a payment plan.");
+        }
+        
+        // If response exists but no ID, the backend needs to be updated
+        if (manualUserResponse && manualUserResponse.success && manualUserResponse.data) {
+          console.error("⚠️ User response exists but 'id' field is missing. Backend should return 'id' in the response.");
+          console.error("Current response structure:", manualUserResponse.data);
+          throw new Error(
+            "User ID not found in API response. The backend API '/api/create-manual-user' should return 'id' in the data object. Please contact support."
+          );
+        }
+        
+        // Generic error - user not created yet
+        throw new Error(
+          "User account not found. Please complete step 1 (personal information) first, then try selecting a payment plan again."
+        );
+      }
+      
+      console.log("✅ Using user ID:", userId);
 
       // Call backend API to create subscription (matches mobile app)
+      // Note: stripe_customer_id will be created automatically by backend if missing
       const subscriptionResponse = await createSubscription({
-        user_id: userId,
+        user_id: userIdString || userId, // Use string version if available
         price_id: priceId,
       });
 
