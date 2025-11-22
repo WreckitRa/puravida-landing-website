@@ -28,6 +28,7 @@ import {
   type PartialOnboardingData,
 } from "@/lib/api";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
+import CountrySelector from "@/components/CountrySelector";
 import { decodeAndStoreInviteFromUrl } from "@/lib/storage";
 import { initAppLinking, isAndroid, isIOS } from "@/lib/app-linking";
 import {
@@ -102,7 +103,7 @@ const DUBAI_PLACES = [
 
 function OnboardingPageContent() {
   const searchParams = useSearchParams();
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
   const stepStartTime = useRef<number>(Date.now());
   const formStartTime = useRef<number>(Date.now());
@@ -166,8 +167,8 @@ function OnboardingPageContent() {
       setHasPaid(true);
       // Clean up URL
       window.history.replaceState({}, "", window.location.pathname);
-      // Navigate to success page (step 10) to show fast track message
-      setCurrentStep(10);
+      // Navigate to success page (step 11) to show fast track message
+      setCurrentStep(11);
     } else if (paymentStatus === "cancel") {
       // Payment cancelled - stay on payment page
       // Clean up URL
@@ -189,18 +190,18 @@ function OnboardingPageContent() {
   // Save partial data when user leaves the page (beforeunload)
   useEffect(() => {
     const handleBeforeUnload = () => {
-      // Only save if we're past step 0 (hero screen) and have some data
-      if (currentStep > 0) {
+      // Only save if we're past step 1 (hero screen) and have some data
+      if (currentStep > 1) {
         const stepNames: Record<number, string> = {
-          0: "Hero",
-          1: "Personal Information",
-          2: "Music Taste",
-          3: "Favorite DJ",
-          4: "Favorite Places",
-          5: "Festivals Been To",
-          6: "Festivals Want To Go",
-          7: "Nightlife Frequency",
-          8: "Ideal Night Out",
+          1: "Hero",
+          2: "Personal Information",
+          3: "Music Taste",
+          4: "Favorite DJ",
+          5: "Favorite Places",
+          6: "Festivals Been To",
+          7: "Festivals Want To Go",
+          8: "Nightlife Frequency",
+          9: "Ideal Night Out",
         };
         const stepName = stepNames[currentStep] || `Step ${currentStep}`;
 
@@ -321,17 +322,17 @@ function OnboardingPageContent() {
   // Track step views and time spent
   useEffect(() => {
     const stepNames: Record<number, string> = {
-      0: "Hero",
-      1: "Personal Information",
-      2: "Music Taste",
-      3: "Favorite DJ",
-      4: "Favorite Places",
-      5: "Festivals Been To",
-      6: "Festivals Want To Go",
-      7: "Nightlife Frequency",
-      8: "Ideal Night Out",
-      9: "Emotional Lead-in",
-      10: "Confirmation",
+      1: "Hero",
+      2: "Personal Information",
+      3: "Music Taste",
+      4: "Favorite DJ",
+      5: "Favorite Places",
+      6: "Festivals Been To",
+      7: "Festivals Want To Go",
+      8: "Nightlife Frequency",
+      9: "Ideal Night Out",
+      10: "Emotional Lead-in",
+      11: "Confirmation",
     };
 
     const stepName = stepNames[currentStep] || `Step ${currentStep}`;
@@ -344,7 +345,7 @@ function OnboardingPageContent() {
 
     // Track time spent on previous step (if not first step)
     return () => {
-      if (currentStep > 0) {
+      if (currentStep > 1) {
         const timeSpent = (Date.now() - stepStartTime.current) / 1000;
         const prevStepName =
           stepNames[currentStep - 1] || `Step ${currentStep - 1}`;
@@ -353,9 +354,9 @@ function OnboardingPageContent() {
     };
   }, [currentStep]);
 
-  // Fetch products when step 11 (payment page) is shown
+  // Fetch products when step 12 (payment page) is shown
   useEffect(() => {
-    if (currentStep === 11 && products.length === 0 && !productsLoading) {
+    if (currentStep === 12 && products.length === 0 && !productsLoading) {
       const fetchProducts = async () => {
         setProductsLoading(true);
         setProductsError(null);
@@ -371,9 +372,9 @@ function OnboardingPageContent() {
     }
   }, [currentStep, products.length, productsLoading]);
 
-  // Handle loading messages for step 12 (checking account)
+  // Handle loading messages for step 13 (checking account)
   useEffect(() => {
-    if (currentStep === 12 && isCheckingAccount) {
+    if (currentStep === 13 && isCheckingAccount) {
       const loadingMessages = [
         "Checking your vibe... 🔍",
         "Analyzing your party DNA... 🧬",
@@ -517,22 +518,22 @@ function OnboardingPageContent() {
   };
 
   const handleNext = async () => {
-    // Step 0: Hero -> Step 1
-    // Step 1: Personal info -> Step 2
-    // Steps 2-8: Vibe questions (2a-2g)
-    // Step 9: Emotional lead-in -> Step 10 (confirmation)
-    if (currentStep < 9 && !isAnimating) {
+    // Step 1: Hero -> Step 2
+    // Step 2: Personal info -> Step 3
+    // Steps 3-9: Vibe questions (2a-2g)
+    // Step 10: Emotional lead-in -> Step 11 (confirmation)
+    if (currentStep < 10 && !isAnimating) {
       // Track step completion
       const stepNames: Record<number, string> = {
-        0: "Hero",
-        1: "Personal Information",
-        2: "Music Taste",
-        3: "Favorite DJ",
-        4: "Favorite Places",
-        5: "Festivals Been To",
-        6: "Festivals Want To Go",
-        7: "Nightlife Frequency",
-        8: "Ideal Night Out",
+        1: "Hero",
+        2: "Personal Information",
+        3: "Music Taste",
+        4: "Favorite DJ",
+        5: "Favorite Places",
+        6: "Festivals Been To",
+        7: "Festivals Want To Go",
+        8: "Nightlife Frequency",
+        9: "Ideal Night Out",
       };
       const timeSpent = (Date.now() - stepStartTime.current) / 1000;
       const stepName = stepNames[currentStep] || `Step ${currentStep}`;
@@ -542,8 +543,8 @@ function OnboardingPageContent() {
       // This ensures we capture data even if user abandons the flow
       savePartialData(currentStep, stepName);
 
-      // Create user in database when completing step 1
-      if (currentStep === 1) {
+      // Create user in database when completing step 2
+      if (currentStep === 2) {
         setIsCreatingUser(true);
         try {
           // Split full name into first and last name
@@ -696,7 +697,7 @@ function OnboardingPageContent() {
       // Show loading/checking screen first
       setIsSubmitting(false);
       setIsCheckingAccount(true);
-      setCurrentStep(12); // Loading/checking step
+      setCurrentStep(13); // Loading/checking step
       setCurrentLoadingMessageIndex(0); // Reset to first message
 
       // Calculate delay: 5 messages × 800ms per message = 4000ms total
@@ -717,9 +718,9 @@ function OnboardingPageContent() {
         // Check API response status - if "pending", show payment page, otherwise show success page
         const status = manualUserResponse?.data?.status;
         if (status === "pending") {
-          setCurrentStep(11); // Review page with payment plans
+          setCurrentStep(12); // Review page with payment plans
         } else {
-          setCurrentStep(10); // Success page with approved message
+          setCurrentStep(11); // Success page with approved message
         }
         setIsAnimating(false);
       }, totalLoadingTime);
@@ -815,14 +816,14 @@ function OnboardingPageContent() {
             manualUserResponse.message ||
             "User creation failed";
           throw new Error(
-            `User creation failed: ${errorMsg}. Please go back to step 1 and try again.`
+            `User creation failed: ${errorMsg}. Please go back to step 2 and try again.`
           );
         }
 
         // Check if we're on the right step
-        if (currentStep < 1) {
+        if (currentStep < 2) {
           throw new Error(
-            "Please complete step 1 (personal information) before selecting a payment plan."
+            "Please complete step 2 (personal information) before selecting a payment plan."
           );
         }
 
@@ -843,7 +844,7 @@ function OnboardingPageContent() {
 
         // Generic error - user not created yet
         throw new Error(
-          "User account not found. Please complete step 1 (personal information) first, then try selecting a payment plan again."
+          "User account not found. Please complete step 2 (personal information) first, then try selecting a payment plan again."
         );
       }
 
@@ -952,14 +953,14 @@ function OnboardingPageContent() {
   };
 
   const getProgress = () => {
-    if (currentStep === 0) return 0;
-    if (currentStep === 1) return 11; // Personal info
-    if (currentStep >= 2 && currentStep <= 8) {
-      // Steps 2-8 are vibe questions (7 steps), so progress from ~22% to ~78%
-      const vibeProgress = ((currentStep - 1) / 8) * 67; // 67% of total (from step 1 to step 9)
+    if (currentStep === 1) return 0; // Hero
+    if (currentStep === 2) return 11; // Personal info
+    if (currentStep >= 3 && currentStep <= 9) {
+      // Steps 3-9 are vibe questions (7 steps), so progress from ~22% to ~78%
+      const vibeProgress = ((currentStep - 2) / 8) * 67; // 67% of total (from step 2 to step 10)
       return 11 + vibeProgress;
     }
-    if (currentStep === 9) return 90; // Emotional lead-in
+    if (currentStep === 10) return 90; // Emotional lead-in
     return 100; // Confirmation
   };
 
@@ -1012,7 +1013,7 @@ function OnboardingPageContent() {
   };
 
   // Hero Section
-  if (currentStep === 0) {
+  if (currentStep === 1) {
     // Partner logos
     const partners = [
       { logo: "/assets/logo1.svg" },
@@ -1233,7 +1234,7 @@ function OnboardingPageContent() {
                     {/* Hide button on mobile - floating bottom button serves this purpose */}
                     <button
                       onClick={() => {
-                        trackButtonClick("Hero CTA", 0, "hero");
+                        trackButtonClick("Hero CTA", 1, "hero");
                         handleNext();
                       }}
                       className="hidden lg:block group bg-white text-black px-6 sm:px-10 py-3 sm:py-4 text-sm sm:text-base font-bold tracking-wide hover:bg-gray-100 transition-all duration-300 rounded-2xl hover:scale-105 hover:shadow-2xl active:scale-100 relative overflow-hidden w-full"
@@ -1389,8 +1390,8 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 1: Personal Information
-  if (currentStep === 1) {
+  // Step 2: Personal Information
+  if (currentStep === 2) {
     const progress = getStep1Progress();
     return (
       <div className="min-h-screen bg-black flex items-start justify-center px-4 py-8 md:py-16 relative overflow-hidden">
@@ -1541,10 +1542,9 @@ function OnboardingPageContent() {
                   <label className="block text-sm font-bold text-gray-700 mb-2">
                     Nationality <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <CountrySelector
                     value={formData.nationality}
-                    onChange={(e) => {
-                      const countryId = e.target.value;
+                    onChange={(countryId) => {
                       updateFormData("nationality", countryId);
                       // Track selection
                       if (countryId && countries.length > 0) {
@@ -1567,16 +1567,9 @@ function OnboardingPageContent() {
                     onBlur={() =>
                       trackFieldInteraction("nationality", currentStep, "blur")
                     }
-                    className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 cursor-pointer font-medium"
-                    required
-                  >
-                    <option value="">Select your nationality...</option>
-                    {countries.map((country) => (
-                      <option key={country.id} value={country.id.toString()}>
-                        {country.name}
-                      </option>
-                    ))}
-                  </select>
+                    countries={countries}
+                    placeholder="Select your nationality..."
+                  />
                 </div>
 
                 <div className="md:col-span-2">
@@ -1883,10 +1876,10 @@ function OnboardingPageContent() {
     );
   };
 
-  // Step 2: Music Taste
-  if (currentStep === 2) {
+  // Step 3: Music Taste
+  if (currentStep === 3) {
     return renderQuestionStep(
-      2,
+      1,
       "What gets you moving? 🎵",
       "Tap all your favorite genres",
       "🎧",
@@ -1942,10 +1935,10 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 3: Favorite DJ
-  if (currentStep === 3) {
+  // Step 4: Favorite DJ
+  if (currentStep === 4) {
     return renderQuestionStep(
-      3,
+      2,
       "Who is your fav DJ 🎧",
       "Drop a name that makes you lose it",
       "🎧",
@@ -1961,10 +1954,10 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 4: Favorite Places in Dubai
-  if (currentStep === 4) {
+  // Step 5: Favorite Places in Dubai
+  if (currentStep === 5) {
     return renderQuestionStep(
-      4,
+      3,
       "Where do you party in Dubai? 🏙️",
       "Tap all your favorite spots",
       "🌃",
@@ -2024,10 +2017,10 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 5: Festivals Been To
-  if (currentStep === 5) {
+  // Step 6: Festivals Been To
+  if (currentStep === 6) {
     return renderQuestionStep(
-      5,
+      4,
       "Festivals you've crushed 🎪",
       "Where have you been? Show off!",
       "🎡",
@@ -2043,10 +2036,10 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 6: Festivals Want To Go
-  if (currentStep === 6) {
+  // Step 7: Festivals Want To Go
+  if (currentStep === 7) {
     return renderQuestionStep(
-      6,
+      5,
       "Festivals on your bucket list 🎯",
       "Where do you want to go next?",
       "✈️",
@@ -2062,10 +2055,10 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 7: Nightlife Frequency
-  if (currentStep === 7) {
+  // Step 8: Nightlife Frequency
+  if (currentStep === 8) {
     return renderQuestionStep(
-      7,
+      6,
       "How often do you go out? 🌙",
       "Be honest! We're all friends here",
       "🌆",
@@ -2087,10 +2080,10 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 8: Ideal Night Out
-  if (currentStep === 8) {
+  // Step 9: Ideal Night Out
+  if (currentStep === 9) {
     return renderQuestionStep(
-      8,
+      7,
       "Describe your perfect night ❤️",
       "Paint us a picture! What's the vibe? (Optional)",
       "❤️",
@@ -2105,8 +2098,8 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 9: Emotional Lead-in
-  if (currentStep === 9) {
+  // Step 10: Emotional Lead-in
+  if (currentStep === 10) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
         {/* Animated background blobs */}
@@ -2233,8 +2226,8 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 12: Loading/Checking Account
-  if (currentStep === 12) {
+  // Step 13: Loading/Checking Account
+  if (currentStep === 13) {
     const loadingMessages = [
       "Checking your vibe... 🔍",
       "Analyzing your party DNA... 🧬",
@@ -2310,8 +2303,8 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 10: Confirmation (Approved or Pending)
-  if (currentStep === 10) {
+  // Step 11: Confirmation (Approved or Pending)
+  if (currentStep === 11) {
     const iosAppUrl = "https://apps.apple.com/us/app/id6744160016";
     const androidAppUrl =
       "https://play.google.com/store/apps/details?id=com.puravida.events";
@@ -2460,7 +2453,7 @@ function OnboardingPageContent() {
                       rel="noopener noreferrer"
                       className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
                       onClick={() =>
-                        trackButtonClick("Download iOS App", 10, "app-download")
+                        trackButtonClick("Download iOS App", 11, "app-download")
                       }
                     >
                       <svg
@@ -2518,7 +2511,7 @@ function OnboardingPageContent() {
                     href={`mailto:${contactEmail}`}
                     className="text-black hover:text-gray-700 font-bold underline transition-colors"
                     onClick={() =>
-                      trackButtonClick("Contact Email", 10, "contact")
+                      trackButtonClick("Contact Email", 11, "contact")
                     }
                   >
                     📧 {contactEmail}
@@ -2530,7 +2523,7 @@ function OnboardingPageContent() {
                     rel="noopener noreferrer"
                     className="text-black hover:text-gray-700 font-bold underline transition-colors"
                     onClick={() =>
-                      trackButtonClick("Contact WhatsApp", 10, "contact")
+                      trackButtonClick("Contact WhatsApp", 11, "contact")
                     }
                   >
                     💬 {contactPhone}
@@ -2549,8 +2542,8 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 11: Review Page with Payment Plans
-  if (currentStep === 11) {
+  // Step 12: Review Page with Payment Plans
+  if (currentStep === 12) {
     // Build payment plans from API products (only male pricing)
     const paymentPlans: Array<{
       name: string;
@@ -2848,7 +2841,7 @@ function OnboardingPageContent() {
               <div className="mt-6">
                 <button
                   onClick={() => {
-                    setCurrentStep(10);
+                    setCurrentStep(11);
                   }}
                   className="text-gray-500 hover:text-gray-700 font-medium text-sm underline transition-colors"
                 >
