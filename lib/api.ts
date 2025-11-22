@@ -315,13 +315,15 @@ export async function createManualUser(
 
     if (!response.ok) {
       // Check if error message contains SQL duplicate entry error
-      const errorMessage = result.error?.message || result.message || "Failed to create user";
-      const isDuplicatePhone = 
-        errorMessage.includes("Duplicate entry") && errorMessage.includes("users_phone_unique") ||
+      const errorMessage =
+        result.error?.message || result.message || "Failed to create user";
+      const isDuplicatePhone =
+        (errorMessage.includes("Duplicate entry") &&
+          errorMessage.includes("users_phone_unique")) ||
         errorMessage.includes("SQLSTATE[23000]") ||
         errorMessage.includes("Integrity constraint violation") ||
         errorMessage.includes("1062");
-      
+
       return {
         success: false,
         error: result.error || {
@@ -472,17 +474,20 @@ export async function createSubscription(
   data: CreateSubscriptionData
 ): Promise<CreateSubscriptionResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/create-subscription-for-user`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        user_id: data.user_id,
-        price_id: data.price_id,
-      }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/create-subscription-for-user`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          user_id: data.user_id,
+          price_id: data.price_id,
+        }),
+      }
+    );
 
     const result: CreateSubscriptionResponse = await response.json();
 
@@ -502,6 +507,126 @@ export async function createSubscription(
     };
   } catch (error) {
     console.error("API Error creating subscription:", error);
+    return {
+      success: false,
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Network error. Please try again.",
+      },
+    };
+  }
+}
+
+export interface PartialOnboardingData {
+  // User identifier (phone or user_id from step 1)
+  user_id?: number | string;
+  phone?: string;
+  country_code?: string;
+
+  // Step tracking
+  current_step: number;
+  step_name: string;
+
+  // Partial form data (only fields completed so far)
+  fullName?: string;
+  first_name?: string;
+  last_name?: string;
+  gender?: string;
+  age?: number;
+  nationality?: string;
+  email?: string;
+  instagram?: string;
+  musicTaste?: string[];
+  musicTasteOther?: string;
+  favoriteDJ?: string;
+  favoritePlacesDubai?: string[];
+  favoritePlacesOther?: string;
+  festivalsBeenTo?: string;
+  festivalsWantToGo?: string;
+  nightlifeFrequency?: string;
+  idealNightOut?: string;
+
+  // Attribution (captured once, stored with first save)
+  attribution?: {
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_term?: string;
+    utm_content?: string;
+    gclid?: string;
+    fbclid?: string;
+    ttclid?: string;
+    li_fat_id?: string;
+    msclkid?: string;
+    ref?: string;
+    first_touch_timestamp?: string;
+    last_touch_timestamp?: string;
+    landing_page?: string;
+    referrer?: string;
+  };
+
+  // Metadata
+  updated_at: string;
+  time_spent_seconds?: number;
+}
+
+export interface PartialOnboardingResponse {
+  success?: boolean;
+  message?: string;
+  data?: {
+    user_id?: number | string;
+    current_step?: number;
+    [key: string]: any;
+  };
+  error?: {
+    code: string;
+    message: string;
+    details?: Array<{
+      field: string;
+      message: string;
+    }>;
+  };
+}
+
+/**
+ * Save partial onboarding data (incremental save on each step)
+ * This allows us to capture data even if user abandons the flow
+ */
+export async function savePartialOnboarding(
+  data: PartialOnboardingData
+): Promise<PartialOnboardingResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/onboarding/partial`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result: PartialOnboardingResponse = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || {
+          code: "UNKNOWN_ERROR",
+          message: result.message || "Failed to save progress",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      message: result.message || "Progress saved successfully",
+      data: result.data,
+    };
+  } catch (error) {
+    console.error("API Error saving partial onboarding:", error);
     return {
       success: false,
       error: {

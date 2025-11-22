@@ -24,6 +24,8 @@ import {
   type OnboardingSubmissionData,
   getCountries,
   type Country,
+  savePartialOnboarding,
+  type PartialOnboardingData,
 } from "@/lib/api";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import { decodeAndStoreInviteFromUrl } from "@/lib/storage";
@@ -113,7 +115,9 @@ function OnboardingPageContent() {
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentIntentClientSecret, setPaymentIntentClientSecret] = useState<string | null>(null);
+  const [paymentIntentClientSecret, setPaymentIntentClientSecret] = useState<
+    string | null
+  >(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [hasPaid, setHasPaid] = useState(false); // Track if user has paid for fast track
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -181,6 +185,107 @@ function OnboardingPageContent() {
       console.log("Attribution data:", attributionData);
     }
   }, []);
+
+  // Save partial data when user leaves the page (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Only save if we're past step 0 (hero screen) and have some data
+      if (currentStep > 0) {
+        const stepNames: Record<number, string> = {
+          0: "Hero",
+          1: "Personal Information",
+          2: "Music Taste",
+          3: "Favorite DJ",
+          4: "Favorite Places",
+          5: "Festivals Been To",
+          6: "Festivals Want To Go",
+          7: "Nightlife Frequency",
+          8: "Ideal Night Out",
+        };
+        const stepName = stepNames[currentStep] || `Step ${currentStep}`;
+
+        // Save partial data using fetch with keepalive for reliable delivery
+        const user_id = manualUserResponse?.data?.id;
+        const currentAttribution = getAttribution();
+        const timeSpent = Math.floor(
+          (Date.now() - stepStartTime.current) / 1000
+        );
+
+        const nameParts = formData.fullName.trim().split(/\s+/);
+        const first_name = nameParts[0] || "";
+        const last_name = nameParts.slice(1).join(" ") || "";
+        const ageNumber = formData.age ? parseInt(formData.age, 10) : undefined;
+
+        const partialData: PartialOnboardingData = {
+          ...(user_id && { user_id }),
+          ...(formData.mobile && { phone: formData.mobile }),
+          ...(formData.phoneCode && { country_code: formData.phoneCode }),
+          current_step: currentStep,
+          step_name: stepName,
+          ...(formData.fullName && {
+            fullName: formData.fullName,
+            first_name,
+            last_name,
+          }),
+          ...(formData.gender && { gender: formData.gender }),
+          ...(ageNumber && { age: ageNumber }),
+          ...(formData.nationality && { nationality: formData.nationality }),
+          ...(formData.email && { email: formData.email }),
+          ...(formData.instagram && { instagram: formData.instagram }),
+          ...(formData.musicTaste.length > 0 && {
+            musicTaste: formData.musicTaste,
+          }),
+          ...(formData.musicTasteOther && {
+            musicTasteOther: formData.musicTasteOther,
+          }),
+          ...(formData.favoriteDJ && { favoriteDJ: formData.favoriteDJ }),
+          ...(formData.favoritePlacesDubai.length > 0 && {
+            favoritePlacesDubai: formData.favoritePlacesDubai,
+          }),
+          ...(formData.favoritePlacesOther && {
+            favoritePlacesOther: formData.favoritePlacesOther,
+          }),
+          ...(formData.festivalsBeenTo && {
+            festivalsBeenTo: formData.festivalsBeenTo,
+          }),
+          ...(formData.festivalsWantToGo && {
+            festivalsWantToGo: formData.festivalsWantToGo,
+          }),
+          ...(formData.nightlifeFrequency && {
+            nightlifeFrequency: formData.nightlifeFrequency,
+          }),
+          ...(formData.idealNightOut && {
+            idealNightOut: formData.idealNightOut,
+          }),
+          ...(Object.keys(currentAttribution).length > 0 && {
+            attribution: currentAttribution,
+          }),
+          updated_at: new Date().toISOString(),
+          time_spent_seconds: timeSpent,
+        };
+
+        // Use fetch with keepalive for reliable delivery even if page is closing
+        const API_BASE_URL =
+          process.env.NEXT_PUBLIC_API_URL || "https://api.puravida.events";
+        fetch(`${API_BASE_URL}/api/onboarding/partial`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(partialData),
+          keepalive: true, // Ensures request completes even if page is closing
+        }).catch(() => {
+          // Silently fail - we're already leaving the page
+        });
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [currentStep, formData, manualUserResponse]);
 
   // Fetch countries on mount
   useEffect(() => {
@@ -322,6 +427,95 @@ function OnboardingPageContent() {
     });
   };
 
+  // Save partial onboarding data to database
+  const savePartialData = async (stepNumber: number, stepName: string) => {
+    try {
+      // Get user ID from manual user response (if step 1 was completed)
+      const user_id = manualUserResponse?.data?.id;
+
+      // Get current attribution data
+      const currentAttribution = getAttribution();
+
+      // Calculate time spent
+      const timeSpent = Math.floor((Date.now() - stepStartTime.current) / 1000);
+
+      // Split name for step 1 data
+      const nameParts = formData.fullName.trim().split(/\s+/);
+      const first_name = nameParts[0] || "";
+      const last_name = nameParts.slice(1).join(" ") || "";
+
+      // Convert age to number if available
+      const ageNumber = formData.age ? parseInt(formData.age, 10) : undefined;
+
+      // Build partial data object with only completed fields
+      const partialData: PartialOnboardingData = {
+        // User identifier
+        ...(user_id && { user_id }),
+        ...(formData.mobile && { phone: formData.mobile }),
+        ...(formData.phoneCode && { country_code: formData.phoneCode }),
+
+        // Step tracking
+        current_step: stepNumber,
+        step_name: stepName,
+
+        // Include all form data that has been filled (even if incomplete)
+        ...(formData.fullName && {
+          fullName: formData.fullName,
+          first_name,
+          last_name,
+        }),
+        ...(formData.gender && { gender: formData.gender }),
+        ...(ageNumber && { age: ageNumber }),
+        ...(formData.nationality && { nationality: formData.nationality }),
+        ...(formData.email && { email: formData.email }),
+        ...(formData.instagram && { instagram: formData.instagram }),
+        ...(formData.musicTaste.length > 0 && {
+          musicTaste: formData.musicTaste,
+        }),
+        ...(formData.musicTasteOther && {
+          musicTasteOther: formData.musicTasteOther,
+        }),
+        ...(formData.favoriteDJ && { favoriteDJ: formData.favoriteDJ }),
+        ...(formData.favoritePlacesDubai.length > 0 && {
+          favoritePlacesDubai: formData.favoritePlacesDubai,
+        }),
+        ...(formData.favoritePlacesOther && {
+          favoritePlacesOther: formData.favoritePlacesOther,
+        }),
+        ...(formData.festivalsBeenTo && {
+          festivalsBeenTo: formData.festivalsBeenTo,
+        }),
+        ...(formData.festivalsWantToGo && {
+          festivalsWantToGo: formData.festivalsWantToGo,
+        }),
+        ...(formData.nightlifeFrequency && {
+          nightlifeFrequency: formData.nightlifeFrequency,
+        }),
+        ...(formData.idealNightOut && {
+          idealNightOut: formData.idealNightOut,
+        }),
+
+        // Attribution (only include if we have some attribution data)
+        ...(Object.keys(currentAttribution).length > 0 && {
+          attribution: currentAttribution,
+        }),
+
+        // Metadata
+        updated_at: new Date().toISOString(),
+        time_spent_seconds: timeSpent,
+      };
+
+      // Save to database (fire and forget - don't block user flow)
+      savePartialOnboarding(partialData).catch((error) => {
+        // Silently fail - we don't want to interrupt user flow if save fails
+        console.warn("Failed to save partial onboarding data:", error);
+      });
+    } catch (error) {
+      // Silently fail - we don't want to interrupt user flow
+      console.warn("Error preparing partial onboarding data:", error);
+    }
+  };
+
   const handleNext = async () => {
     // Step 0: Hero -> Step 1
     // Step 1: Personal info -> Step 2
@@ -343,6 +537,10 @@ function OnboardingPageContent() {
       const timeSpent = (Date.now() - stepStartTime.current) / 1000;
       const stepName = stepNames[currentStep] || `Step ${currentStep}`;
       trackStepComplete(currentStep, stepName, timeSpent);
+
+      // Save partial data to database (incremental save on each step)
+      // This ensures we capture data even if user abandons the flow
+      savePartialData(currentStep, stepName);
 
       // Create user in database when completing step 1
       if (currentStep === 1) {
@@ -594,50 +792,61 @@ function OnboardingPageContent() {
       console.log("Manual user response:", manualUserResponse);
       console.log("Current step:", currentStep);
       console.log("Response data:", manualUserResponse?.data);
-      
+
       // Try to get user ID from response
       // The backend returns 'id' (can be number or UUID string)
       let userId = manualUserResponse?.data?.id;
-      
+
       // If no ID, try alternative fields
       if (!userId) {
-        userId = 
+        userId =
           manualUserResponse?.data?.user_id ||
           (manualUserResponse?.data as any)?.userId;
       }
-      
+
       // Convert to string if it's a number (backend might expect string)
       const userIdString = userId ? String(userId) : null;
-      
+
       if (!userId) {
         // Check if user creation failed
         if (manualUserResponse && !manualUserResponse.success) {
-          const errorMsg = manualUserResponse.error?.message || manualUserResponse.message || "User creation failed";
+          const errorMsg =
+            manualUserResponse.error?.message ||
+            manualUserResponse.message ||
+            "User creation failed";
           throw new Error(
             `User creation failed: ${errorMsg}. Please go back to step 1 and try again.`
           );
         }
-        
+
         // Check if we're on the right step
         if (currentStep < 1) {
-          throw new Error("Please complete step 1 (personal information) before selecting a payment plan.");
+          throw new Error(
+            "Please complete step 1 (personal information) before selecting a payment plan."
+          );
         }
-        
+
         // If response exists but no ID, the backend needs to be updated
-        if (manualUserResponse && manualUserResponse.success && manualUserResponse.data) {
-          console.error("⚠️ User response exists but 'id' field is missing. Backend should return 'id' in the response.");
+        if (
+          manualUserResponse &&
+          manualUserResponse.success &&
+          manualUserResponse.data
+        ) {
+          console.error(
+            "⚠️ User response exists but 'id' field is missing. Backend should return 'id' in the response."
+          );
           console.error("Current response structure:", manualUserResponse.data);
           throw new Error(
             "User ID not found in API response. The backend API '/api/create-manual-user' should return 'id' in the data object. Please contact support."
           );
         }
-        
+
         // Generic error - user not created yet
         throw new Error(
           "User account not found. Please complete step 1 (personal information) first, then try selecting a payment plan again."
         );
       }
-      
+
       console.log("✅ Using user ID:", userId);
 
       // Call backend API to create subscription (matches mobile app)
@@ -654,32 +863,49 @@ function OnboardingPageContent() {
       }
 
       // Log full response for debugging
-      console.log("✅ Subscription created successfully:", subscriptionResponse);
+      console.log(
+        "✅ Subscription created successfully:",
+        subscriptionResponse
+      );
 
       // Extract client_secret from response
       // API returns: { data: { client_secret: "...", payment_intent: { client_secret: "..." } } }
-      const clientSecret = 
+      const clientSecret =
         subscriptionResponse.data?.client_secret ||
         subscriptionResponse.data?.payment_intent?.client_secret ||
         (subscriptionResponse.data as any)?.payment_intent?.client_secret;
 
-      console.log("Extracted client_secret:", clientSecret ? "Found" : "NOT FOUND");
+      console.log(
+        "Extracted client_secret:",
+        clientSecret ? "Found" : "NOT FOUND"
+      );
       console.log("Response data structure:", subscriptionResponse.data);
 
       if (!clientSecret) {
-        console.error("❌ Full subscription response:", JSON.stringify(subscriptionResponse, null, 2));
-        throw new Error("Payment intent client secret not found in response. Check API response structure.");
+        console.error(
+          "❌ Full subscription response:",
+          JSON.stringify(subscriptionResponse, null, 2)
+        );
+        throw new Error(
+          "Payment intent client secret not found in response. Check API response structure."
+        );
       }
 
-      console.log("✅ Payment intent client secret received, opening payment modal...");
+      console.log(
+        "✅ Payment intent client secret received, opening payment modal..."
+      );
 
       // Store payment intent client secret and show payment modal
       setPaymentIntentClientSecret(clientSecret);
       setShowPaymentModal(true);
       setIsProcessingPayment(false); // Modal will handle its own loading state
-      
-      console.log("✅ Modal state updated - showPaymentModal:", true, "clientSecret:", clientSecret.substring(0, 20) + "...");
-      
+
+      console.log(
+        "✅ Modal state updated - showPaymentModal:",
+        true,
+        "clientSecret:",
+        clientSecret.substring(0, 20) + "..."
+      );
     } catch (error) {
       console.error("Payment error:", error);
 
@@ -2132,14 +2358,14 @@ function OnboardingPageContent() {
           >
             <div className="space-y-6">
               <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight animate-fade-in">
-                {hasPaid 
-                  ? "Payment Successful! 🎉" 
-                  : isPending 
-                    ? "Application Submitted! ⏳" 
-                    : "Welcome to PuraVida! ❤️"}
+                {hasPaid
+                  ? "Payment Successful! 🎉"
+                  : isPending
+                  ? "Application Submitted! ⏳"
+                  : "Welcome to PuraVida! ❤️"}
               </h2>
               <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
-              
+
               {/* Fast Track Message - Show if user paid */}
               {hasPaid && (
                 <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 text-white animate-fade-in">
@@ -2150,35 +2376,37 @@ function OnboardingPageContent() {
                         Your Application is Now on Fast Track! 🚀
                       </h3>
                       <p className="text-lg md:text-xl text-gray-200">
-                        Thank you for your payment! Your membership subscription is now active, and our team will prioritize your application for faster review. You'll hear from us within 24 hours.
+                        Thank you for your payment! Your membership subscription
+                        is now active, and our team will prioritize your
+                        application for faster review. You'll hear from us
+                        within 24 hours.
                       </p>
                     </div>
                   </div>
                 </div>
               )}
-              
+
               <p className="text-2xl md:text-3xl text-black font-bold max-w-xl mx-auto">
-                {hasPaid 
-                  ? "Your membership is being activated!" 
-                  : isPending 
-                    ? "Your application is under review 📋" 
-                    : "You're in! Add yourself to the guestlist 🎉"}
+                {hasPaid
+                  ? "Your membership is being activated!"
+                  : isPending
+                  ? "Your application is under review 📋"
+                  : "You're in! Add yourself to the guestlist 🎉"}
               </p>
               <p className="text-lg md:text-xl text-gray-700 max-w-2xl mx-auto font-medium">
-                {hasPaid 
+                {hasPaid
                   ? "Your payment has been processed successfully. You'll receive your activation code shortly by WhatsApp, and your membership benefits will be available once your application is reviewed."
                   : isPending
-                    ? "Thank you for submitting your application! Our team is currently reviewing it. We'll get back to you soon via WhatsApp with your activation code once your application is approved."
-                    : "Your request has been approved! You'll receive your activation code shortly by WhatsApp."
-                }
+                  ? "Thank you for submitting your application! Our team is currently reviewing it. We'll get back to you soon via WhatsApp with your activation code once your application is approved."
+                  : "Your request has been approved! You'll receive your activation code shortly by WhatsApp."}
                 {!isPending && (
                   <>
                     <br />
                     <span className="font-bold text-black">
                       Download the app now
                     </span>{" "}
-                    to start accessing exclusive guestlists, priority bookings, and
-                    curated parties at Dubai's hottest venues.
+                    to start accessing exclusive guestlists, priority bookings,
+                    and curated parties at Dubai's hottest venues.
                   </>
                 )}
               </p>
@@ -2195,12 +2423,18 @@ function OnboardingPageContent() {
                             Fast-Track Your Review
                           </h3>
                           <p className="text-lg md:text-xl text-gray-200">
-                            Want to get approved faster? Subscribe to a membership plan and our team will prioritize your application. You'll hear from us within 24 hours!
+                            Want to get approved faster? Subscribe to a
+                            membership plan and our team will prioritize your
+                            application. You'll hear from us within 24 hours!
                           </p>
                         </div>
                         <button
                           onClick={() => {
-                            trackButtonClick("Fast Track Payment", 10, "return-to-payment");
+                            trackButtonClick(
+                              "Fast Track Payment",
+                              10,
+                              "return-to-payment"
+                            );
                             setCurrentStep(11); // Go back to payment plans
                           }}
                           className="w-full sm:w-auto px-8 py-4 bg-white text-black rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300 hover:scale-105 shadow-lg"
@@ -2219,59 +2453,59 @@ function OnboardingPageContent() {
                   <h3 className="text-xl md:text-2xl font-bold text-black">
                     Get the App & Start Your Journey
                   </h3>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                  <a
-                    href={iosAppUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
-                    onClick={() =>
-                      trackButtonClick("Download iOS App", 10, "app-download")
-                    }
-                  >
-                    <svg
-                      className="w-8 h-8"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    <a
+                      href={iosAppUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
+                      onClick={() =>
+                        trackButtonClick("Download iOS App", 10, "app-download")
+                      }
                     >
-                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                    </svg>
-                    <div className="text-left">
-                      <div className="text-xs leading-tight opacity-90">
-                        Download on the
+                      <svg
+                        className="w-8 h-8"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                      </svg>
+                      <div className="text-left">
+                        <div className="text-xs leading-tight opacity-90">
+                          Download on the
+                        </div>
+                        <div className="text-lg leading-tight">App Store</div>
                       </div>
-                      <div className="text-lg leading-tight">App Store</div>
-                    </div>
-                  </a>
-                  <a
-                    href={androidAppUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
-                    onClick={() =>
-                      trackButtonClick(
-                        "Download Android App",
-                        10,
-                        "app-download"
-                      )
-                    }
-                  >
-                    <svg
-                      className="w-8 h-8"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+                    </a>
+                    <a
+                      href={androidAppUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
+                      onClick={() =>
+                        trackButtonClick(
+                          "Download Android App",
+                          10,
+                          "app-download"
+                        )
+                      }
                     >
-                      <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
-                    </svg>
-                    <div className="text-left">
-                      <div className="text-xs leading-tight opacity-90">
-                        GET IT ON
+                      <svg
+                        className="w-8 h-8"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
+                      </svg>
+                      <div className="text-left">
+                        <div className="text-xs leading-tight opacity-90">
+                          GET IT ON
+                        </div>
+                        <div className="text-lg leading-tight">Google Play</div>
                       </div>
-                      <div className="text-lg leading-tight">Google Play</div>
-                    </div>
-                  </a>
+                    </a>
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Contact Info */}
@@ -2395,258 +2629,260 @@ function OnboardingPageContent() {
 
     return (
       <>
-      <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
-        {/* Animated background */}
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
+        <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
+          {/* Animated background */}
+          <div className="absolute inset-0">
+            <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
+            <div
+              className="absolute bottom-20 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+              style={{ animationDelay: "1s" }}
+            ></div>
+          </div>
+
           <div
-            className="absolute bottom-20 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
-            style={{ animationDelay: "1s" }}
-          ></div>
-        </div>
+            className={`max-w-5xl w-full space-y-8 relative z-10 transition-all duration-700 ${
+              isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"
+            }`}
+          >
+            {/* Review Status Card */}
+            <div className="bg-white rounded-3xl p-8 md:p-10 shadow-2xl animate-bounce-in text-center">
+              <div className="space-y-4 mb-8">
+                <div className="text-6xl animate-bounce-in">🔍</div>
+                <h2 className="text-4xl md:text-5xl font-bold text-black leading-tight">
+                  Your Profile is Under Review
+                </h2>
+                <div className="w-24 h-1 bg-black mx-auto rounded-full"></div>
+                <p className="text-xl md:text-2xl text-gray-700 font-medium max-w-2xl mx-auto">
+                  We're carefully reviewing your application to ensure you're
+                  the perfect fit for the PuraVida community.
+                </p>
+              </div>
 
-        <div
-          className={`max-w-5xl w-full space-y-8 relative z-10 transition-all duration-700 ${
-            isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"
-          }`}
-        >
-          {/* Review Status Card */}
-          <div className="bg-white rounded-3xl p-8 md:p-10 shadow-2xl animate-bounce-in text-center">
-            <div className="space-y-4 mb-8">
-              <div className="text-6xl animate-bounce-in">🔍</div>
-              <h2 className="text-4xl md:text-5xl font-bold text-black leading-tight">
-                Your Profile is Under Review
-              </h2>
-              <div className="w-24 h-1 bg-black mx-auto rounded-full"></div>
-              <p className="text-xl md:text-2xl text-gray-700 font-medium max-w-2xl mx-auto">
-                We're carefully reviewing your application to ensure you're the
-                perfect fit for the PuraVida community.
-              </p>
-            </div>
-
-            {/* Fast Track Message */}
-            <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 mb-8 text-white">
-              <div className="flex items-start gap-4 max-w-3xl mx-auto">
-                <div className="text-4xl flex-shrink-0">⚡</div>
-                <div className="text-left space-y-2">
-                  <h3 className="text-2xl md:text-3xl font-bold">
-                    Fast-Track Your Review
-                  </h3>
-                  <p className="text-lg md:text-xl text-gray-200">
-                    Our team prioritizes paid memberships for faster review. If
-                    your application isn't accepted, we'll issue an immediate
-                    full refund—no questions asked.
-                  </p>
+              {/* Fast Track Message */}
+              <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 mb-8 text-white">
+                <div className="flex items-start gap-4 max-w-3xl mx-auto">
+                  <div className="text-4xl flex-shrink-0">⚡</div>
+                  <div className="text-left space-y-2">
+                    <h3 className="text-2xl md:text-3xl font-bold">
+                      Fast-Track Your Review
+                    </h3>
+                    <p className="text-lg md:text-xl text-gray-200">
+                      Our team prioritizes paid memberships for faster review.
+                      If your application isn't accepted, we'll issue an
+                      immediate full refund—no questions asked.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Payment Plans */}
-            <div className="space-y-6">
-              <h3 className="text-3xl md:text-4xl font-bold text-black mb-6">
-                Choose Your Membership Plan
-              </h3>
+              {/* Payment Plans */}
+              <div className="space-y-6">
+                <h3 className="text-3xl md:text-4xl font-bold text-black mb-6">
+                  Choose Your Membership Plan
+                </h3>
 
-              {productsLoading ? (
-                <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
-                  <p className="mt-4 text-gray-600 font-medium">
-                    Loading plans...
-                  </p>
-                </div>
-              ) : productsError ? (
-                <div className="text-center py-12">
-                  <p className="text-red-600 font-medium mb-4">
-                    {productsError}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setProductsLoading(true);
-                      setProductsError(null);
-                      getProducts(1).then((result) => {
-                        if (result.success && result.data) {
-                          setProducts(result.data);
-                        } else {
-                          setProductsError(
-                            result.error?.message || "Failed to load products"
-                          );
-                        }
-                        setProductsLoading(false);
-                      });
-                    }}
-                    className="text-black underline hover:text-gray-700 font-medium"
-                  >
-                    Try again
-                  </button>
-                </div>
-              ) : paymentPlans.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-600 font-medium">
-                    No payment plans available at the moment.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                  {paymentPlans.map((plan, index) => (
-                    <div
-                      key={`${plan.name}-${index}`}
-                      className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
-                        plan.popular
-                          ? "border-black shadow-xl scale-105"
-                          : "border-gray-300"
-                      }`}
-                      style={{ animationDelay: `${index * 0.1}s` }}
-                    >
-                      {plan.popular && (
-                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-2 rounded-full text-sm font-bold">
-                          MOST POPULAR
-                        </div>
-                      )}
-                      {plan.savings && (
-                        <div className="absolute -top-3 -right-3 bg-green-500 text-white px-4 py-2 rounded-full text-xs font-bold rotate-12 shadow-lg">
-                          {plan.savings}
-                        </div>
-                      )}
-                      <div className="space-y-6">
-                        <div>
-                          <h4 className="text-2xl font-bold text-black mb-2">
-                            {plan.name}
-                          </h4>
-                          <div className="flex items-baseline gap-2 flex-wrap">
-                            {plan.originalPrice && (
-                              <span className="text-lg text-gray-400 line-through">
-                                {formatPrice(
-                                  parseFloat(plan.originalPrice),
-                                  products[0]?.currency_type || "usd"
-                                )}
-                              </span>
-                            )}
-                            <span className="text-4xl md:text-5xl font-bold text-black">
-                              {plan.price}
-                            </span>
-                            <span className="text-gray-600 font-medium">
-                              {plan.period}
-                            </span>
-                          </div>
-                        </div>
-                        <ul className="space-y-3 text-left">
-                          {defaultFeatures.map((feature, idx) => (
-                            <li
-                              key={idx}
-                              className="flex items-center gap-3 text-gray-700"
-                            >
-                              <span className="text-green-500 text-xl">✓</span>
-                              <span className="font-medium">{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <button
-                          disabled={isProcessingPayment}
-                          className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${
-                            plan.popular
-                              ? "bg-black text-white hover:bg-gray-900 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                              : "bg-gray-100 text-black hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          }`}
-                          onClick={() => {
-                            trackButtonClick(
-                              `Select ${plan.name} Plan`,
-                              11,
-                              "payment"
+                {productsLoading ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+                    <p className="mt-4 text-gray-600 font-medium">
+                      Loading plans...
+                    </p>
+                  </div>
+                ) : productsError ? (
+                  <div className="text-center py-12">
+                    <p className="text-red-600 font-medium mb-4">
+                      {productsError}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setProductsLoading(true);
+                        setProductsError(null);
+                        getProducts(1).then((result) => {
+                          if (result.success && result.data) {
+                            setProducts(result.data);
+                          } else {
+                            setProductsError(
+                              result.error?.message || "Failed to load products"
                             );
-                            handleStripeCheckout(plan.priceId);
-                          }}
-                        >
-                          {isProcessingPayment ? (
-                            <span className="flex items-center justify-center gap-2">
-                              <svg
-                                className="animate-spin h-5 w-5"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
+                          }
+                          setProductsLoading(false);
+                        });
+                      }}
+                      className="text-black underline hover:text-gray-700 font-medium"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : paymentPlans.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600 font-medium">
+                      No payment plans available at the moment.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                    {paymentPlans.map((plan, index) => (
+                      <div
+                        key={`${plan.name}-${index}`}
+                        className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+                          plan.popular
+                            ? "border-black shadow-xl scale-105"
+                            : "border-gray-300"
+                        }`}
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                      >
+                        {plan.popular && (
+                          <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-2 rounded-full text-sm font-bold">
+                            MOST POPULAR
+                          </div>
+                        )}
+                        {plan.savings && (
+                          <div className="absolute -top-3 -right-3 bg-green-500 text-white px-4 py-2 rounded-full text-xs font-bold rotate-12 shadow-lg">
+                            {plan.savings}
+                          </div>
+                        )}
+                        <div className="space-y-6">
+                          <div>
+                            <h4 className="text-2xl font-bold text-black mb-2">
+                              {plan.name}
+                            </h4>
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              {plan.originalPrice && (
+                                <span className="text-lg text-gray-400 line-through">
+                                  {formatPrice(
+                                    parseFloat(plan.originalPrice),
+                                    products[0]?.currency_type || "usd"
+                                  )}
+                                </span>
+                              )}
+                              <span className="text-4xl md:text-5xl font-bold text-black">
+                                {plan.price}
+                              </span>
+                              <span className="text-gray-600 font-medium">
+                                {plan.period}
+                              </span>
+                            </div>
+                          </div>
+                          <ul className="space-y-3 text-left">
+                            {defaultFeatures.map((feature, idx) => (
+                              <li
+                                key={idx}
+                                className="flex items-center gap-3 text-gray-700"
                               >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                              Processing...
-                            </span>
-                          ) : (
-                            `Select ${plan.name} Plan`
-                          )}
-                        </button>
+                                <span className="text-green-500 text-xl">
+                                  ✓
+                                </span>
+                                <span className="font-medium">{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <button
+                            disabled={isProcessingPayment}
+                            className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 ${
+                              plan.popular
+                                ? "bg-black text-white hover:bg-gray-900 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                : "bg-gray-100 text-black hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            }`}
+                            onClick={() => {
+                              trackButtonClick(
+                                `Select ${plan.name} Plan`,
+                                11,
+                                "payment"
+                              );
+                              handleStripeCheckout(plan.priceId);
+                            }}
+                          >
+                            {isProcessingPayment ? (
+                              <span className="flex items-center justify-center gap-2">
+                                <svg
+                                  className="animate-spin h-5 w-5"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                                Processing...
+                              </span>
+                            ) : (
+                              `Select ${plan.name} Plan`
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            {/* Refund Policy */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <div className="flex items-start gap-3 max-w-2xl mx-auto text-left">
-                <span className="text-2xl flex-shrink-0">🛡️</span>
-                <div className="space-y-2">
-                  <p className="text-sm font-bold text-gray-900">
-                    Money-Back Guarantee
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    If your application isn't accepted, we'll process a full
-                    refund immediately—typically within 24-48 hours. Your
-                    payment is completely risk-free.
-                  </p>
+              {/* Refund Policy */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="flex items-start gap-3 max-w-2xl mx-auto text-left">
+                  <span className="text-2xl flex-shrink-0">🛡️</span>
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-gray-900">
+                      Money-Back Guarantee
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      If your application isn't accepted, we'll process a full
+                      refund immediately—typically within 24-48 hours. Your
+                      payment is completely risk-free.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Skip Option */}
-            <div className="mt-6">
-              <button
-                onClick={() => {
-                  setCurrentStep(10);
-                }}
-                className="text-gray-500 hover:text-gray-700 font-medium text-sm underline transition-colors"
-              >
-                Continue with standard review (no payment)
-              </button>
+              {/* Skip Option */}
+              <div className="mt-6">
+                <button
+                  onClick={() => {
+                    setCurrentStep(10);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 font-medium text-sm underline transition-colors"
+                >
+                  Continue with standard review (no payment)
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      {/* Payment Modal - Render on top of payment step */}
-      {showPaymentModal && paymentIntentClientSecret && (
-        <PaymentModal
-          isOpen={showPaymentModal}
-          onClose={() => {
-            setShowPaymentModal(false);
-            setPaymentIntentClientSecret(null);
-            setIsProcessingPayment(false);
-          }}
-          clientSecret={paymentIntentClientSecret}
-          customerName={formData.fullName || undefined}
-          onSuccess={() => {
-            // Payment succeeded - mark as paid and show success
-            setHasPaid(true);
-            setShowPaymentModal(false);
-            setPaymentIntentClientSecret(null);
-            // Navigate to success page with payment success
-            window.location.href = `${window.location.origin}/onboarding?payment=success`;
-          }}
-          onError={(error) => {
-            // Error is already shown in modal
-            console.error("Payment error:", error);
-          }}
-        />
-      )}
+        {/* Payment Modal - Render on top of payment step */}
+        {showPaymentModal && paymentIntentClientSecret && (
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setPaymentIntentClientSecret(null);
+              setIsProcessingPayment(false);
+            }}
+            clientSecret={paymentIntentClientSecret}
+            customerName={formData.fullName || undefined}
+            onSuccess={() => {
+              // Payment succeeded - mark as paid and show success
+              setHasPaid(true);
+              setShowPaymentModal(false);
+              setPaymentIntentClientSecret(null);
+              // Navigate to success page with payment success
+              window.location.href = `${window.location.origin}/onboarding?payment=success`;
+            }}
+            onError={(error) => {
+              // Error is already shown in modal
+              console.error("Payment error:", error);
+            }}
+          />
+        )}
       </>
     );
   }

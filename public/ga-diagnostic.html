@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GA Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #0a5; }
+        .error { background: #a00; }
+        .warning { background: #fa0; color: #000; }
+        .info { background: #05a; }
+        button {
+            background: #0a5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0c7; }
+        pre {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .event-log {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .event-item {
+            background: #1a1a1a;
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 3px solid #0a5;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Google Analytics Diagnostic Tool</h1>
+    
+    <div class="section">
+        <h2>1. Initialization Status</h2>
+        <div id="init-status"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. Measurement ID</h2>
+        <div id="measurement-id"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Script Loading</h2>
+        <div id="script-status"></div>
+    </div>
+    
+    <div class="section">
+        <h2>4. DataLayer Status</h2>
+        <div id="datalayer-status"></div>
+        <button onclick="showDataLayer()">Show DataLayer Contents</button>
+        <pre id="datalayer-content" style="display: none;"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>5. Network Requests</h2>
+        <div id="network-status"></div>
+        <button onclick="checkNetwork()">Check Network Requests</button>
+    </div>
+    
+    <div class="section">
+        <h2>6. Test Events</h2>
+        <button onclick="sendTestEvent()">Send Test Event</button>
+        <button onclick="sendPageView()">Send Page View</button>
+        <button onclick="sendConversion()">Send Conversion Event</button>
+        <div id="test-results"></div>
+    </div>
+    
+    <div class="section">
+        <h2>7. Event Log</h2>
+        <div id="event-log" class="event-log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div class="section">
+        <h2>8. Attribution Data</h2>
+        <div id="attribution-data"></div>
+    </div>
+    
+    <div class="section">
+        <h2>9. Quick Actions</h2>
+        <button onclick="runFullDiagnostic()">Run Full Diagnostic</button>
+        <button onclick="copyDiagnosticReport()">Copy Diagnostic Report</button>
+    </div>
+
+    <script>
+        // Monitor dataLayer
+        const originalPush = Array.prototype.push;
+        const eventLog = [];
+        
+        if (window.dataLayer) {
+            Array.prototype.push = function(...args) {
+                const result = originalPush.apply(this, args);
+                if (args.length > 0) {
+                    logEvent('DataLayer Push', args);
+                }
+                return result;
+            };
+        }
+        
+        function logEvent(type, data) {
+            const timestamp = new Date().toLocaleTimeString();
+            eventLog.push({ timestamp, type, data });
+            updateEventLog();
+        }
+        
+        function updateEventLog() {
+            const logDiv = document.getElementById('event-log');
+            logDiv.innerHTML = eventLog.slice(-20).reverse().map(item => {
+                return `<div class="event-item">
+                    <strong>${item.timestamp}</strong> - ${item.type}<br>
+                    <pre>${JSON.stringify(item.data, null, 2)}</pre>
+                </div>`;
+            }).join('');
+        }
+        
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function checkInitialization() {
+            if (window.gtag) {
+                showStatus('init-status', '✅ Google Analytics is initialized (gtag function exists)', 'success');
+            } else {
+                showStatus('init-status', '❌ Google Analytics is NOT initialized (gtag function missing)', 'error');
+            }
+        }
+        
+        function checkMeasurementId() {
+            // Try to get from dataLayer
+            let measurementId = 'Not found';
+            if (window.dataLayer && window.dataLayer.length > 0) {
+                for (let item of window.dataLayer) {
+                    if (Array.isArray(item) && item[0] === 'config' && item[1]) {
+                        measurementId = item[1];
+                        break;
+                    }
+                }
+            }
+            
+            if (measurementId === 'Not found') {
+                showStatus('measurement-id', `⚠️ Measurement ID not found in dataLayer. Check environment variable NEXT_PUBLIC_GA_MEASUREMENT_ID`, 'warning');
+            } else {
+                showStatus('measurement-id', `✅ Measurement ID: <strong>${measurementId}</strong>`, 'success');
+            }
+        }
+        
+        function checkScriptLoading() {
+            const scripts = Array.from(document.querySelectorAll('script[src*="googletagmanager"]'));
+            if (scripts.length > 0) {
+                const script = scripts[0];
+                showStatus('script-status', `✅ GA Script loaded: <br><code>${script.src}</code>`, 'success');
+            } else {
+                showStatus('script-status', '❌ GA Script not found in DOM', 'error');
+            }
+        }
+        
+        function checkDataLayer() {
+            if (window.dataLayer && Array.isArray(window.dataLayer)) {
+                showStatus('datalayer-status', `✅ DataLayer exists with ${window.dataLayer.length} items`, 'success');
+            } else {
+                showStatus('datalayer-status', '❌ DataLayer not found or not an array', 'error');
+            }
+        }
+        
+        function showDataLayer() {
+            const content = document.getElementById('datalayer-content');
+            if (content.style.display === 'none') {
+                content.textContent = JSON.stringify(window.dataLayer || [], null, 2);
+                content.style.display = 'block';
+            } else {
+                content.style.display = 'none';
+            }
+        }
+        
+        function checkNetwork() {
+            showStatus('network-status', '📡 Check the Network tab in DevTools. Look for requests to:<br>' +
+                '<code>googletagmanager.com/gtag/js</code><br>' +
+                '<code>google-analytics.com/g/collect</code>', 'info');
+        }
+        
+        function sendTestEvent() {
+            if (!window.gtag) {
+                showStatus('test-results', '❌ Cannot send test event: gtag not available', 'error');
+                return;
+            }
+            
+            window.gtag('event', 'diagnostic_test', {
+                test_param: 'test_value',
+                timestamp: new Date().toISOString()
+            });
+            
+            showStatus('test-results', '✅ Test event sent! Check Google Analytics Real-Time → Events', 'success');
+            logEvent('Test Event Sent', { event_name: 'diagnostic_test' });
+        }
+        
+        function sendPageView() {
+            if (!window.gtag) {
+                showStatus('test-results', '❌ Cannot send page view: gtag not available', 'error');
+                return;
+            }
+            
+            const measurementId = getMeasurementId();
+            if (!measurementId) {
+                showStatus('test-results', '❌ Cannot send page view: Measurement ID not found', 'error');
+                return;
+            }
+            
+            window.gtag('config', measurementId, {
+                page_path: '/test-page',
+                page_title: 'Test Page'
+            });
+            
+            showStatus('test-results', '✅ Page view sent! Check Google Analytics Real-Time → Overview', 'success');
+            logEvent('Page View Sent', { page_path: '/test-page' });
+        }
+        
+        function sendConversion() {
+            if (!window.gtag) {
+                showStatus('test-results', '❌ Cannot send conversion: gtag not available', 'error');
+                return;
+            }
+            
+            window.gtag('event', 'conversion', {
+                event_category: 'Test',
+                event_label: 'Diagnostic Test',
+                value: 1
+            });
+            
+            showStatus('test-results', '✅ Conversion event sent! Check Google Analytics Real-Time → Conversions', 'success');
+            logEvent('Conversion Sent', { event_name: 'conversion' });
+        }
+        
+        function getMeasurementId() {
+            if (window.dataLayer && window.dataLayer.length > 0) {
+                for (let item of window.dataLayer) {
+                    if (Array.isArray(item) && item[0] === 'config' && item[1]) {
+                        return item[1];
+                    }
+                }
+            }
+            return null;
+        }
+        
+        function checkAttribution() {
+            try {
+                const stored = localStorage.getItem('puravida_attribution');
+                const attribution = stored ? JSON.parse(stored) : null;
+                
+                if (attribution && Object.keys(attribution).length > 0) {
+                    document.getElementById('attribution-data').innerHTML = 
+                        `<div class="status success">✅ Attribution data found:</div>
+                        <pre>${JSON.stringify(attribution, null, 2)}</pre>`;
+                } else {
+                    showStatus('attribution-data', 'ℹ️ No attribution data stored in localStorage', 'info');
+                }
+            } catch (e) {
+                showStatus('attribution-data', `❌ Error reading attribution: ${e.message}`, 'error');
+            }
+        }
+        
+        function clearLog() {
+            eventLog.length = 0;
+            updateEventLog();
+        }
+        
+        function runFullDiagnostic() {
+            checkInitialization();
+            checkMeasurementId();
+            checkScriptLoading();
+            checkDataLayer();
+            checkAttribution();
+            checkNetwork();
+            
+            showStatus('test-results', '✅ Full diagnostic complete! Review all sections above.', 'success');
+        }
+        
+        function copyDiagnosticReport() {
+            const report = {
+                timestamp: new Date().toISOString(),
+                gtag_loaded: !!window.gtag,
+                measurement_id: getMeasurementId(),
+                datalayer_length: window.dataLayer ? window.dataLayer.length : 0,
+                datalayer: window.dataLayer || [],
+                scripts: Array.from(document.querySelectorAll('script[src*="googletagmanager"]')).map(s => s.src),
+                attribution: (() => {
+                    try {
+                        const stored = localStorage.getItem('puravida_attribution');
+                        return stored ? JSON.parse(stored) : null;
+                    } catch (e) {
+                        return null;
+                    }
+                })(),
+                events_logged: eventLog.length
+            };
+            
+            navigator.clipboard.writeText(JSON.stringify(report, null, 2)).then(() => {
+                showStatus('test-results', '✅ Diagnostic report copied to clipboard!', 'success');
+            }).catch(() => {
+                showStatus('test-results', '❌ Failed to copy. Check console for report.', 'error');
+                console.log('Diagnostic Report:', report);
+            });
+        }
+        
+        // Run initial checks
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                runFullDiagnostic();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
+
