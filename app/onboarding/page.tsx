@@ -2404,8 +2404,8 @@ function OnboardingPageContent() {
                 )}
               </p>
 
-              {/* Fast Track Option - Show if user hasn't paid */}
-              {!hasPaid && (
+              {/* Fast Track Option - Show only if user is pending and hasn't paid */}
+              {!hasPaid && isPending && (
                 <div className="pt-6 pb-4">
                   <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 text-white">
                     <div className="flex items-start gap-4 max-w-2xl mx-auto">
