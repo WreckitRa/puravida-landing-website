@@ -33,13 +33,13 @@ export default function CountrySelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedCountry = countries.find(
-    (c) => c.id.toString() === value
-  ) || null;
+  const selectedCountry =
+    countries.find((c) => c.id.toString() === value) || null;
 
-  const filteredCountries = countries.filter((country) =>
-    country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    country.short_code?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCountries = countries.filter(
+    (country) =>
+      country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      country.short_code?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
@@ -187,4 +187,6 @@ export default function CountrySelector({
     </div>
   );
 }
+
+
 

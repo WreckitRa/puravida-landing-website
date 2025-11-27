@@ -5,6 +5,7 @@ This document explains the incremental save feature that saves onboarding data t
 ## Overview
 
 Previously, onboarding data was only saved:
+
 1. When step 1 was completed (user creation via `createManualUser`)
 2. When the entire form was submitted (via `submitOnboarding`)
 
@@ -21,17 +22,18 @@ Now, data is saved **incrementally after each step**, so you can recover partial
 **Purpose:** Saves partial onboarding data with step tracking.
 
 **Data Structure:**
+
 ```typescript
 {
   // User identifier
   user_id?: number | string;  // From step 1 user creation
   phone?: string;              // Phone number
   country_code?: string;       // Country code
-  
+
   // Step tracking
   current_step: number;        // Current step (0-9)
   step_name: string;           // Human-readable step name
-  
+
   // Partial form data (only completed fields)
   fullName?: string;
   first_name?: string;
@@ -50,10 +52,10 @@ Now, data is saved **incrementally after each step**, so you can recover partial
   festivalsWantToGo?: string;
   nightlifeFrequency?: string;
   idealNightOut?: string;
-  
+
   // Attribution data
   attribution?: { ... };
-  
+
   // Metadata
   updated_at: string;           // ISO timestamp
   time_spent_seconds?: number;  // Time spent on current step
@@ -65,12 +67,14 @@ Now, data is saved **incrementally after each step**, so you can recover partial
 Data is automatically saved in the following scenarios:
 
 #### A. After Each Step Completion
+
 - When user clicks "Continue" and moves to the next step
 - Saves all data collected up to that point
 - Includes current step number and step name
 - Tracks time spent on the step
 
 #### B. When User Leaves the Page
+
 - Uses `beforeunload` event listener
 - Saves current progress even if user closes browser/tab
 - Uses `fetch` with `keepalive: true` for reliable delivery
@@ -97,6 +101,7 @@ The system uses multiple identifiers to track users:
 2. **Fallback:** `phone` + `country_code` (if user_id not available yet)
 
 This ensures data can be linked even if:
+
 - User abandons before completing step 1
 - User creation fails but phone number is entered
 - User returns later and completes onboarding
@@ -108,6 +113,7 @@ You need to implement the backend endpoint:
 **Endpoint:** `POST /api/onboarding/partial`
 
 **Expected Behavior:**
+
 1. Accept partial onboarding data
 2. Store/update data in database
 3. Track `current_step` to know where user left off
@@ -115,35 +121,37 @@ You need to implement the backend endpoint:
 5. Return success response
 
 **Database Schema Suggestions:**
+
 - Store partial data in a separate table (e.g., `onboarding_progress`)
 - Or update existing user record with partial data
 - Track `current_step` to know where user abandoned
 - Store `updated_at` timestamp for each save
 
 **Example Backend Logic:**
+
 ```php
 // Pseudo-code example
 function savePartialOnboarding($data) {
     // Find or create user record
     $user = findUserByPhoneOrId($data['phone'], $data['user_id']);
-    
+
     // Update onboarding progress
     $user->onboarding_step = $data['current_step'];
     $user->onboarding_step_name = $data['step_name'];
     $user->onboarding_updated_at = $data['updated_at'];
-    
+
     // Merge partial data (only update fields that are provided)
     if (isset($data['fullName'])) $user->full_name = $data['fullName'];
     if (isset($data['email'])) $user->email = $data['email'];
     // ... etc for all fields
-    
+
     // Save attribution data
     if (isset($data['attribution'])) {
         $user->attribution = json_encode($data['attribution']);
     }
-    
+
     $user->save();
-    
+
     return ['success' => true, 'data' => ['user_id' => $user->id]];
 }
 ```
@@ -176,6 +184,7 @@ To test the incremental save feature:
 ## Monitoring
 
 Monitor these metrics:
+
 - **Save Success Rate:** How often partial saves succeed
 - **Abandonment Points:** Which steps users abandon most
 - **Recovery Rate:** How many abandoned users return
@@ -184,9 +193,12 @@ Monitor these metrics:
 ## Future Enhancements
 
 Potential improvements:
+
 1. **Resume Flow:** Allow users to resume from where they left off
 2. **Email Reminders:** Send follow-up emails to users who abandoned
 3. **Progress Indicators:** Show users their saved progress
 4. **Data Validation:** Validate partial data before saving
 5. **Conflict Resolution:** Handle cases where user completes form while partial save is in progress
+
+
 

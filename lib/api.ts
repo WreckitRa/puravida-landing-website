@@ -1,6 +1,13 @@
 // API utility functions
 
 /**
+ * Check if mock mode is enabled (for development/testing)
+ */
+export const isMockMode = () => {
+  return process.env.NEXT_PUBLIC_MOCK_API === "true";
+};
+
+/**
  * Get API base URL and ensure it uses HTTPS to prevent mixed-content errors
  */
 function getApiBaseUrl(): string {
@@ -87,6 +94,23 @@ export interface ApiResponse<T = any> {
 export async function submitOnboarding(
   data: OnboardingSubmissionData
 ): Promise<ApiResponse> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: submitOnboarding", data);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          message: "Application submitted successfully (MOCK)",
+          data: {
+            user_id: 12345,
+            status: "pending",
+          },
+        });
+      }, 500); // Simulate network delay
+    });
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/onboarding`, {
       method: "POST",
@@ -186,6 +210,22 @@ export interface CreateUserResponse {
  * Get list of countries with codes
  */
 export async function getCountries(): Promise<Country[]> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: getCountries");
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve([
+          { id: 1, name: "United Arab Emirates", short_code: "AE", country_code: 971 },
+          { id: 2, name: "Lebanon", short_code: "LB", country_code: 961 },
+          { id: 3, name: "United States", short_code: "US", country_code: 1 },
+          { id: 4, name: "United Kingdom", short_code: "GB", country_code: 44 },
+          { id: 5, name: "Saudi Arabia", short_code: "SA", country_code: 966 },
+        ]);
+      }, 200);
+    });
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/get-country-code`, {
       method: "GET",
@@ -269,6 +309,7 @@ export interface CreateManualUserData {
   gender: string; // "1" for Man, "2" for Woman
   invity_number?: string;
   source?: string;
+  manual_status?: number; // 1 for pending users created through onboarding
 }
 
 export interface CreateManualUserResponse {
@@ -301,6 +342,28 @@ export interface CreateManualUserResponse {
 export async function createManualUser(
   data: CreateManualUserData
 ): Promise<CreateManualUserResponse> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: createManualUser", data);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          message: "User created successfully (MOCK)",
+          data: {
+            id: 12345,
+            customer_id: null,
+            first_name: data.first_name,
+            last_name: data.last_name,
+            phone: data.phone,
+            wait_list_count: 0,
+            status: "pending",
+          },
+        });
+      }, 500);
+    });
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/create-manual-user`, {
       method: "POST",
@@ -392,6 +455,40 @@ export interface GetProductsResponse {
 export async function getProducts(
   stripeType: number = 1
 ): Promise<GetProductsResponse> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: getProducts");
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          data: [
+            {
+              product_id: "prod_mock",
+              name: "PuraVida Membership",
+              monthly: {
+                male: {
+                  price_id: "price_mock_monthly",
+                  amount: 99,
+                  original_price: "149",
+                },
+              },
+              yearly: {
+                male: {
+                  price_id: "price_mock_yearly",
+                  amount: 999,
+                  original_price: "1788",
+                  percentage: 44,
+                },
+              },
+              currency_type: "usd",
+            },
+          ],
+        });
+      }, 300);
+    });
+  }
+
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/get-products?stripe_type=${stripeType}`,
@@ -598,6 +695,23 @@ export interface PartialOnboardingResponse {
 export async function savePartialOnboarding(
   data: PartialOnboardingData
 ): Promise<PartialOnboardingResponse> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: savePartialOnboarding", data);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          message: "Progress saved successfully (MOCK)",
+          data: {
+            user_id: 12345,
+            current_step: data.current_step,
+          },
+        });
+      }, 300);
+    });
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/onboarding/partial`, {
       method: "POST",

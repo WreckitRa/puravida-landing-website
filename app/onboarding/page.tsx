@@ -129,6 +129,7 @@ function OnboardingPageContent() {
   const [userCreationError, setUserCreationError] = useState<string | null>(
     null
   );
+  const [ageError, setAgeError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     gender: "",
@@ -520,9 +521,9 @@ function OnboardingPageContent() {
   const handleNext = async () => {
     // Step 1: Hero -> Step 2
     // Step 2: Personal info -> Step 3
-    // Steps 3-9: Vibe questions (2a-2g)
-    // Step 10: Emotional lead-in -> Step 11 (confirmation)
-    if (currentStep < 10 && !isAnimating) {
+    // Steps 3-8: Vibe questions (2a-2f)
+    // Step 8 is the final step, calls handleSubmit instead
+    if (currentStep < 8 && !isAnimating) {
       // Track step completion
       const stepNames: Record<number, string> = {
         1: "Hero",
@@ -533,7 +534,6 @@ function OnboardingPageContent() {
         6: "Festivals Been To",
         7: "Festivals Want To Go",
         8: "Nightlife Frequency",
-        9: "Ideal Night Out",
       };
       const timeSpent = (Date.now() - stepStartTime.current) / 1000;
       const stepName = stepNames[currentStep] || `Step ${currentStep}`;
@@ -570,6 +570,7 @@ function OnboardingPageContent() {
           const invity_number = getInvityNumber();
 
           // Create manual user
+          // Set manual_status = 1 for pending users created through onboarding
           const manualUserData = {
             first_name,
             last_name,
@@ -580,6 +581,7 @@ function OnboardingPageContent() {
             gender: genderValue, // Use "1" or "2" format
             invity_number: invity_number || undefined,
             source: "shortform-landing-page",
+            manual_status: 1, // Set to 1 for pending users
           };
 
           // Await and store the response to check status later
@@ -637,6 +639,36 @@ function OnboardingPageContent() {
     }
   };
 
+  const handleBack = () => {
+    // Only allow going back from step 2 onwards (not from step 1)
+    // Also prevent going back during animation or from steps 11+ (success/payment pages)
+    if (currentStep > 1 && currentStep <= 8 && !isAnimating) {
+      // Track back button click for analytics
+      const stepNames: Record<number, string> = {
+        1: "Hero",
+        2: "Personal Information",
+        3: "Music Taste",
+        4: "Favorite DJ",
+        5: "Favorite Places",
+        6: "Festivals Been To",
+        7: "Festivals Want To Go",
+        8: "Nightlife Frequency",
+      };
+      const stepName = stepNames[currentStep] || `Step ${currentStep}`;
+      trackButtonClick("Back", currentStep, "navigation");
+
+      // Reset step start time for the previous step
+      stepStartTime.current = Date.now();
+
+      // Animate and go back
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentStep((prev) => prev - 1);
+        setIsAnimating(false);
+      }, 300);
+    }
+  };
+
   const handleSubmit = async () => {
     // Track form submission
     const timeToComplete = Math.floor(
@@ -647,7 +679,7 @@ function OnboardingPageContent() {
     const currentAttribution = getAttribution();
 
     // Prepare form data with attribution (matching API_SPECIFICATION.md format)
-    // Convert age to number (validation ensures it's a valid integer between 21-120)
+    // Convert age to number (validation ensures it's a valid integer between 22-120, strictly above 21)
     const ageNumber = parseInt(formData.age, 10);
 
     // Split full name into first_name and last_name (same as createManualUser)
@@ -766,9 +798,9 @@ function OnboardingPageContent() {
       return false;
     }
 
-    // Validate age range (21-120)
+    // Validate age range (must be strictly above 21, so 22-120)
     const ageNum = parseInt(formData.age, 10);
-    if (isNaN(ageNum) || ageNum < 21 || ageNum > 120) {
+    if (isNaN(ageNum) || ageNum < 22 || ageNum > 120) {
       return false;
     }
 
@@ -954,13 +986,12 @@ function OnboardingPageContent() {
 
   const getProgress = () => {
     if (currentStep === 1) return 0; // Hero
-    if (currentStep === 2) return 11; // Personal info
-    if (currentStep >= 3 && currentStep <= 9) {
-      // Steps 3-9 are vibe questions (7 steps), so progress from ~22% to ~78%
-      const vibeProgress = ((currentStep - 2) / 8) * 67; // 67% of total (from step 2 to step 10)
-      return 11 + vibeProgress;
+    if (currentStep === 2) return 16; // Personal info (1 of 6 questions)
+    if (currentStep >= 3 && currentStep <= 8) {
+      // Steps 3-8 are vibe questions (6 steps total), so progress from ~16% to ~100%
+      const vibeProgress = ((currentStep - 2) / 6) * 84; // 84% of total (from step 2 to step 8)
+      return 16 + vibeProgress;
     }
-    if (currentStep === 10) return 90; // Emotional lead-in
     return 100; // Confirmation
   };
 
@@ -1411,10 +1442,33 @@ function OnboardingPageContent() {
               : "opacity-100 translate-y-0"
           }`}
         >
+          {/* Back Link - Top Left */}
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={isCreatingUser}
+            className="text-white/70 hover:text-white font-medium text-sm md:text-base flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="w-4 h-4 transition-transform hover:-translate-x-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 17l-5-5m0 0l5-5m-5 5h12"
+              />
+            </svg>
+            Back
+          </button>
+
           {/* Progress Bar */}
           <div className="space-y-3 animate-slide-in-right">
             <div className="flex items-center justify-between text-sm font-bold text-white/90">
-              <span>Question 1 of 9</span>
+              <span>Question 1 of 6</span>
               <span>{Math.round(getProgress())}% done</span>
             </div>
             <div className="w-full h-3 bg-white/20 rounded-full overflow-hidden shadow-inner">
@@ -1441,6 +1495,15 @@ function OnboardingPageContent() {
               className="space-y-5"
               onSubmit={(e) => {
                 e.preventDefault();
+                // Check age validation on submit and show error if needed
+                if (formData.age) {
+                  const ageNum = parseInt(formData.age, 10);
+                  if (isNaN(ageNum) || ageNum < 22) {
+                    setAgeError("Age must be strictly above 21.");
+                    trackValidationError(currentStep, "age", "below_minimum");
+                    return;
+                  }
+                }
                 if (!isStep1Valid()) {
                   trackValidationError(
                     currentStep,
@@ -1503,6 +1566,10 @@ function OnboardingPageContent() {
                       // Allow empty string or valid integers (allow typing intermediate values like "1" or "2" while typing "25")
                       if (value === "" || parseInt(value, 10) <= 120) {
                         updateFormData("age", value);
+                        // Clear error when user starts typing
+                        if (ageError) {
+                          setAgeError(null);
+                        }
                       }
                     }}
                     onKeyDown={(e) => {
@@ -1518,24 +1585,56 @@ function OnboardingPageContent() {
                       }
                     }}
                     onBlur={(e) => {
-                      // Validate on blur - ensure final value is between 21-120
+                      // Validate on blur - ensure final value is strictly above 21 (22-120)
                       const value = e.target.value.replace(/[^0-9]/g, "");
                       const ageNum = parseInt(value, 10);
-                      if (
-                        value &&
-                        (isNaN(ageNum) || ageNum < 21 || ageNum > 120)
-                      ) {
-                        // Reset to empty if invalid
+                      if (value && !isNaN(ageNum)) {
+                        if (ageNum < 22) {
+                          setAgeError("Age must be strictly above 21.");
+                          // Don't clear the field, let user see what they entered
+                        } else if (ageNum > 120) {
+                          setAgeError("Please enter a valid age.");
+                          updateFormData("age", "");
+                        } else {
+                          setAgeError(null);
+                        }
+                      } else if (value) {
+                        // Invalid number
+                        setAgeError("Please enter a valid age.");
                         updateFormData("age", "");
+                      } else {
+                        setAgeError(null);
                       }
                     }}
-                    className="w-full px-4 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium"
+                    onFocus={() => {
+                      // Clear error when user focuses on the field
+                      if (ageError) {
+                        setAgeError(null);
+                      }
+                    }}
+                    className={`w-full px-4 py-4 border-2 bg-white text-black focus:outline-none focus:ring-4 transition-all duration-200 rounded-xl hover:border-gray-400 font-medium ${
+                      ageError
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-200"
+                        : "border-gray-300 focus:border-black focus:ring-gray-200"
+                    }`}
                     placeholder="25"
-                    min="21"
+                    min="22"
                     max="120"
                     step="1"
                     required
                   />
+                  {ageError && (
+                    <div className="mt-2 animate-fade-in">
+                      <div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 flex items-center gap-2">
+                        <span className="text-red-500 text-lg shrink-0">
+                          ⚠️
+                        </span>
+                        <p className="text-red-600 font-medium text-sm">
+                          {ageError}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1688,6 +1787,7 @@ function OnboardingPageContent() {
               )}
 
               <div className="pt-4">
+                {/* Continue Button */}
                 <button
                   type="submit"
                   disabled={!isStep1Valid() || isCreatingUser}
@@ -1784,10 +1884,32 @@ function OnboardingPageContent() {
               : "opacity-100 translate-y-0"
           }`}
         >
+          {/* Back Link - Top Left */}
+          <button
+            type="button"
+            onClick={handleBack}
+            className="text-white/70 hover:text-white font-medium text-sm md:text-base flex items-center gap-2 transition-colors"
+          >
+            <svg
+              className="w-4 h-4 transition-transform hover:-translate-x-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 17l-5-5m0 0l5-5m-5 5h12"
+              />
+            </svg>
+            Back
+          </button>
+
           {/* Progress Bar - Duolingo style */}
           <div className="space-y-3 animate-slide-in-right">
             <div className="flex items-center justify-between text-sm font-bold text-white/90">
-              <span>Question {stepNumber} of 9</span>
+              <span>Question {stepNumber} of 6</span>
               <span>{Math.round(progress)}% done</span>
             </div>
             <div className="w-full h-3 bg-white/20 rounded-full overflow-hidden shadow-inner">
@@ -1833,6 +1955,7 @@ function OnboardingPageContent() {
               </div>
 
               <div className="pt-4">
+                {/* Continue Button */}
                 <button
                   type="submit"
                   disabled={!isValid()}
@@ -2021,7 +2144,7 @@ function OnboardingPageContent() {
   if (currentStep === 6) {
     return renderQuestionStep(
       4,
-      "Festivals you've crushed 🎪",
+      "Festivals you've been to 🎪",
       "Where have you been? Show off!",
       "🎡",
       <textarea
@@ -2055,171 +2178,182 @@ function OnboardingPageContent() {
     );
   }
 
-  // Step 8: Nightlife Frequency
+  // Step 8: Nightlife Frequency (Final Step)
   if (currentStep === 8) {
-    return renderQuestionStep(
-      6,
-      "How often do you go out? 🌙",
-      "Be honest! We're all friends here",
-      "🌆",
-      <select
-        value={formData.nightlifeFrequency}
-        onChange={(e) => updateFormData("nightlifeFrequency", e.target.value)}
-        className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl hover:border-gray-400 cursor-pointer text-center text-lg font-bold"
-        required
-      >
-        <option value="">Choose your vibe...</option>
-        <option value="daily">Daily 🔥</option>
-        <option value="few-times-week">A few times a week</option>
-        <option value="weekly">Weekly</option>
-        <option value="few-times-month">A few times a month</option>
-        <option value="monthly">Monthly</option>
-        <option value="rarely">Rarely</option>
-      </select>,
-      isStep2fValid
-    );
-  }
-
-  // Step 9: Ideal Night Out
-  if (currentStep === 9) {
-    return renderQuestionStep(
-      7,
-      "Describe your perfect night ❤️",
-      "Paint us a picture! What's the vibe? (Optional)",
-      "❤️",
-      <textarea
-        value={formData.idealNightOut}
-        onChange={(e) => updateFormData("idealNightOut", e.target.value)}
-        rows={6}
-        placeholder="Tell us about your perfect night... What makes it special? Who are you with? What's the vibe? Where are you? (Optional)"
-        className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl resize-none hover:border-gray-400 text-base font-medium"
-      />,
-      isStep2gValid
-    );
-  }
-
-  // Step 10: Emotional Lead-in
-  if (currentStep === 10) {
+    const progress = getProgress();
     return (
       <div className="min-h-screen bg-black flex items-center justify-center px-4 py-12 relative overflow-hidden">
         {/* Animated background blobs */}
         <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
+          <div className="absolute top-10 right-10 w-64 h-64 bg-white/5 rounded-full filter blur-2xl animate-pulse-slow"></div>
           <div
-            className="absolute bottom-20 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+            className="absolute bottom-10 left-10 w-64 h-64 bg-white/5 rounded-full filter blur-2xl animate-pulse-slow"
             style={{ animationDelay: "1s" }}
           ></div>
         </div>
 
         <div
-          className={`max-w-3xl w-full space-y-10 text-center relative z-10 transition-all duration-500 ${
+          className={`max-w-2xl w-full space-y-8 relative z-10 transition-all duration-500 ${
             isAnimating
               ? "opacity-0 translate-y-4"
               : "opacity-100 translate-y-0"
           }`}
         >
+          {/* Back Link - Top Left */}
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={isSubmitting}
+            className="text-white/70 hover:text-white font-medium text-sm md:text-base flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="w-4 h-4 transition-transform hover:-translate-x-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 17l-5-5m0 0l5-5m-5 5h12"
+              />
+            </svg>
+            Back
+          </button>
+
           {/* Progress Bar */}
           <div className="space-y-3 animate-slide-in-right">
             <div className="flex items-center justify-between text-sm font-bold text-white/90">
-              <span>Almost there! 🎉</span>
-              <span>90% done</span>
+              <span>Question 6 of 6</span>
+              <span>{Math.round(progress)}% done</span>
             </div>
             <div className="w-full h-3 bg-white/20 rounded-full overflow-hidden shadow-inner">
               <div
                 className="h-full bg-white transition-all duration-500 ease-out rounded-full shadow-lg"
-                style={{ width: "90%" }}
+                style={{ width: `${progress}%` }}
               ></div>
             </div>
           </div>
 
-          {/* Content Card */}
-          <div className="bg-white rounded-3xl p-10 md:p-12 shadow-2xl animate-bounce-in">
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <div className="text-7xl animate-bounce-in">❤️</div>
-                <h2 className="text-5xl md:text-6xl font-bold text-black leading-tight">
-                  Welcome to PuraVida
-                </h2>
-                <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
-              </div>
-
-              <div className="space-y-6 text-gray-700 leading-relaxed max-w-2xl mx-auto">
-                <p className="text-2xl md:text-3xl font-bold text-black">
-                  More than a membership—it's your key to Dubai's inner circle
-                  🗝️
-                </p>
-                <p className="text-lg md:text-xl text-gray-600 font-medium">
-                  Exclusive guestlists, priority tables, and curated parties at
-                  Dubai's hottest venues.
-                </p>
-                <p className="text-base md:text-lg text-gray-600 italic font-medium">
-                  For people who live well and move in the right circles.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-8">
-              <button
-                onClick={() => {
-                  trackButtonClick("Submit & Check Eligibility", 9, "lead-in");
-                  handleSubmit();
-                }}
-                disabled={isSubmitting}
-                className={`group w-full px-12 py-6 text-xl font-bold tracking-wide transition-all duration-300 rounded-2xl relative overflow-hidden ${
-                  isSubmitting
-                    ? "bg-gray-600 text-white cursor-not-allowed"
-                    : "bg-black text-white hover:bg-gray-900 hover:scale-105 hover:shadow-2xl active:scale-100"
-                }`}
+          {/* Question Card */}
+          <div className="bg-white rounded-3xl p-8 md:p-10 shadow-2xl animate-bounce-in">
+            <div className="space-y-6 text-center mb-8">
+              <div
+                className="text-6xl animate-bounce-in"
+                style={{ animationDelay: "0.1s" }}
               >
-                <span className="relative z-10 flex items-center justify-center gap-3">
-                  {isSubmitting ? (
-                    <>
-                      <svg
-                        className="animate-spin h-6 w-6"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      Submit & Check Eligibility 🚀
-                      <svg
-                        className="w-7 h-7 transition-transform group-hover:translate-x-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={3}
-                          d="M13 7l5 5m0 0l-5 5m5-5H6"
-                        />
-                      </svg>
-                    </>
-                  )}
-                </span>
-                {!isSubmitting && (
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
-                )}
-              </button>
+                🌆
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-black leading-tight">
+                How often do you go out? 🌙
+              </h2>
+              <p className="text-lg text-gray-600 font-medium">
+                Be honest! We're all friends here
+              </p>
             </div>
+
+            <form
+              className="space-y-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!isStep2fValid()) {
+                  trackValidationError(8, "form", "incomplete_fields");
+                  return;
+                }
+                trackButtonClick(
+                  "Submit to check eligibility",
+                  8,
+                  "form-submit"
+                );
+                handleSubmit();
+              }}
+            >
+              <div
+                className="animate-fade-in"
+                style={{ animationDelay: "0.2s" }}
+              >
+                <select
+                  value={formData.nightlifeFrequency}
+                  onChange={(e) =>
+                    updateFormData("nightlifeFrequency", e.target.value)
+                  }
+                  className="w-full px-6 py-5 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-2xl hover:border-gray-400 cursor-pointer text-center text-lg font-bold"
+                  required
+                >
+                  <option value="">Choose your vibe...</option>
+                  <option value="daily">Daily 🔥</option>
+                  <option value="few-times-week">A few times a week</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="few-times-month">A few times a month</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="rarely">Rarely</option>
+                </select>
+              </div>
+
+              <div className="pt-4">
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={!isStep2fValid() || isSubmitting}
+                  className={`group w-full px-8 py-5 text-lg font-bold tracking-wide transition-all duration-300 rounded-2xl relative overflow-hidden ${
+                    isStep2fValid() && !isSubmitting
+                      ? "bg-black text-white hover:bg-gray-900 hover:scale-105 hover:shadow-2xl active:scale-100"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    {isSubmitting ? (
+                      <>
+                        <svg
+                          className="animate-spin h-5 w-5"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : isStep2fValid() ? (
+                      <>
+                        Submit to check eligibility 🚀
+                        <svg
+                          className="w-6 h-6 transition-transform group-hover:translate-x-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M13 7l5 5m0 0l-5 5m5-5H6"
+                          />
+                        </svg>
+                      </>
+                    ) : (
+                      "Answer to continue"
+                    )}
+                  </span>
+                  {isStep2fValid() && !isSubmitting && (
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -2355,7 +2489,7 @@ function OnboardingPageContent() {
                   ? "Payment Successful! 🎉"
                   : isPending
                   ? "Application Submitted! ⏳"
-                  : "Welcome to PuraVida! ❤️"}
+                  : "Request approved! ✅"}
               </h2>
               <div className="w-32 h-1 bg-black mx-auto rounded-full"></div>
 
@@ -2384,24 +2518,14 @@ function OnboardingPageContent() {
                   ? "Your membership is being activated!"
                   : isPending
                   ? "Your application is under review 📋"
-                  : "You're in! Add yourself to the guestlist 🎉"}
+                  : "Welcome to PuraVida! ❤️"}
               </p>
               <p className="text-lg md:text-xl text-gray-700 max-w-2xl mx-auto font-medium">
                 {hasPaid
                   ? "Your payment has been processed successfully. You'll receive your activation code shortly by WhatsApp, and your membership benefits will be available once your application is reviewed."
                   : isPending
                   ? "Thank you for submitting your application! Our team is currently reviewing it. We'll get back to you soon via WhatsApp with your activation code once your application is approved."
-                  : "Your request has been approved! You'll receive your activation code shortly by WhatsApp."}
-                {!isPending && (
-                  <>
-                    <br />
-                    <span className="font-bold text-black">
-                      Download the app now
-                    </span>{" "}
-                    to start accessing exclusive guestlists, priority bookings,
-                    and curated parties at Dubai's hottest venues.
-                  </>
-                )}
+                  : "Welcome to PuraVida, you'll get the activation code via WhatsApp, download the app and activate to use the service."}
               </p>
 
               {/* Fast Track Option - Show only if user is pending and hasn't paid */}
@@ -2507,7 +2631,8 @@ function OnboardingPageContent() {
                   For any problems faced, please contact our team:
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center text-base md:text-lg">
-                  <a
+                  {/* Email hidden - not active yet */}
+                  {/* <a
                     href={`mailto:${contactEmail}`}
                     className="text-black hover:text-gray-700 font-bold underline transition-colors"
                     onClick={() =>
@@ -2516,7 +2641,7 @@ function OnboardingPageContent() {
                   >
                     📧 {contactEmail}
                   </a>
-                  <span className="hidden sm:inline text-gray-400">•</span>
+                  <span className="hidden sm:inline text-gray-400">•</span> */}
                   <a
                     href={`https://wa.me/${whatsappNumber}`}
                     target="_blank"
@@ -2562,6 +2687,10 @@ function OnboardingPageContent() {
       const product = products[0];
       const currency = product.currency_type || "usd";
 
+      // Check if user is pending - for pending users, only show monthly plans
+      const userStatus = manualUserResponse?.data?.status;
+      const isPending = userStatus === "pending" && !hasPaid;
+
       // Monthly plan (male only) - only add if not already added
       if (
         product.monthly?.male &&
@@ -2579,14 +2708,16 @@ function OnboardingPageContent() {
                   100
               )}%`
             : null,
-          popular: !product.yearly?.male, // Popular if no yearly option or if monthly is the only option
+          popular: isPending || !product.yearly?.male, // Popular if pending (only option) or if no yearly option
           priceId: monthly.price_id,
           originalPrice: monthly.original_price,
         });
       }
 
       // Yearly plan (male only) - only add if not already added
+      // For pending users, only show monthly plans (skip yearly)
       if (
+        !isPending && // Only show yearly if NOT pending
         product.yearly?.male &&
         !paymentPlans.some((p) => p.name === "Annual")
       ) {
@@ -2614,10 +2745,8 @@ function OnboardingPageContent() {
 
     // Default features
     const defaultFeatures = [
-      "Full membership access",
-      "Priority guest list",
-      "Exclusive events",
-      "24/7 concierge support",
+      "Guest list access with +1",
+      "Priority booking at restaurants and clubs",
     ];
 
     return (
@@ -2652,17 +2781,17 @@ function OnboardingPageContent() {
               </div>
 
               {/* Fast Track Message */}
-              <div className="bg-gradient-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 mb-8 text-white">
+              <div className="bg-linear-to-r from-black to-gray-800 rounded-2xl p-6 md:p-8 mb-8 text-white">
                 <div className="flex items-start gap-4 max-w-3xl mx-auto">
-                  <div className="text-4xl flex-shrink-0">⚡</div>
+                  <div className="text-4xl shrink-0">⚡</div>
                   <div className="text-left space-y-2">
                     <h3 className="text-2xl md:text-3xl font-bold">
                       Fast-Track Your Review
                     </h3>
                     <p className="text-lg md:text-xl text-gray-200">
                       Our team prioritizes paid memberships for faster review.
-                      If your application isn't accepted, we'll issue an
-                      immediate full refund—no questions asked.
+                      If your application isn&apos;t accepted, we&apos;ll issue
+                      an immediate full refund—no questions asked.
                     </p>
                   </div>
                 </div>
@@ -2713,11 +2842,19 @@ function OnboardingPageContent() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                  <div
+                    className={`${
+                      paymentPlans.length === 1
+                        ? "flex justify-center"
+                        : "grid md:grid-cols-2"
+                    } gap-6 max-w-4xl mx-auto`}
+                  >
                     {paymentPlans.map((plan, index) => (
                       <div
                         key={`${plan.name}-${index}`}
                         className={`relative bg-white rounded-2xl p-8 border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+                          paymentPlans.length === 1 ? "w-full max-w-md" : ""
+                        } ${
                           plan.popular
                             ? "border-black shadow-xl scale-105"
                             : "border-gray-300"

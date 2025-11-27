@@ -117,8 +117,8 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
 
             {/* Contact Options */}
             <div className="space-y-4 pt-4">
-              {/* Email Option */}
-              <button
+              {/* Email Option - Hidden, not active yet */}
+              {/* <button
                 onClick={handleEmailClick}
                 className="group w-full bg-black text-white px-6 py-5 rounded-2xl font-bold text-lg hover:bg-gray-900 transition-all duration-300 hover:scale-105 hover:shadow-2xl active:scale-100 relative overflow-hidden"
               >
@@ -139,7 +139,7 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
                   Email Us
                 </span>
                 <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
-              </button>
+              </button> */}
 
               {/* WhatsApp Option */}
               <button
@@ -162,7 +162,8 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
 
             {/* Contact Info Display */}
             <div className="pt-4 space-y-2 text-sm text-gray-600">
-              <p className="font-medium">hello@thisispuravida.com</p>
+              {/* Email hidden - not active yet */}
+              {/* <p className="font-medium">hello@thisispuravida.com</p> */}
               <p className="font-medium">+971 52 678 2867</p>
             </div>
           </div>
