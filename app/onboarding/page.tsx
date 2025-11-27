@@ -431,6 +431,11 @@ function OnboardingPageContent() {
 
   // Save partial onboarding data to database
   const savePartialData = async (stepNumber: number, stepName: string) => {
+    // Don't call partial API until user has at least entered name and phone
+    if (!formData.fullName || !formData.mobile) {
+      return; // Skip saving if name or phone is missing
+    }
+
     try {
       // Get user ID from manual user response (if step 1 was completed)
       const user_id = manualUserResponse?.data?.id;
@@ -558,6 +563,15 @@ function OnboardingPageContent() {
           // Convert nationality string to country_id number
           const country_id = parseInt(formData.nationality, 10);
 
+          // Validate country_id
+          if (isNaN(country_id)) {
+            console.error(
+              "Invalid country_id:",
+              formData.nationality,
+              "Could not parse to number"
+            );
+          }
+
           // Convert gender to old format ("Male" -> "1", "Female" -> "2")
           let genderValue = formData.gender;
           if (formData.gender === "Male") {
@@ -569,8 +583,33 @@ function OnboardingPageContent() {
           // Get invity_number from localStorage if available
           const invity_number = getInvityNumber();
 
+          // Determine manual_status based on restricted countries and gender
+          // Restricted countries: Match by exact country_id from /api/get-country-code
+          // manual_status = 1: Restricted countries (India, Egypt, etc.) AND Male
+          // manual_status = 2: All others
+          const restrictedCountryIds = [
+            64, // Egypt
+            101, // India
+            18, // Bangladesh
+            166, // Pakistan
+            // Add more restricted country IDs as needed (Sri Lanka, Nepal, etc.)
+          ];
+
+          // Check if country_id exactly matches one of the restricted country IDs
+          const isRestrictedCountry = restrictedCountryIds.includes(country_id);
+
+          // Check if user is male (genderValue === "1")
+          const isMale = genderValue === "1";
+
+          // Set manual_status: 1 for restricted countries + male, 2 for all others
+          const manual_status = isRestrictedCountry && isMale ? 1 : 2;
+
+          // Log manual_status determination for debugging
+          console.log(
+            `manual_status determination: country_id=${country_id}, isRestricted=${isRestrictedCountry}, isMale=${isMale}, manual_status=${manual_status}`
+          );
+
           // Create manual user
-          // Set manual_status = 1 for pending users created through onboarding
           const manualUserData = {
             first_name,
             last_name,
@@ -581,7 +620,7 @@ function OnboardingPageContent() {
             gender: genderValue, // Use "1" or "2" format
             invity_number: invity_number || undefined,
             source: "shortform-landing-page",
-            manual_status: 1, // Set to 1 for pending users
+            manual_status, // 1 for restricted countries + male, 2 for all others
           };
 
           // Await and store the response to check status later
