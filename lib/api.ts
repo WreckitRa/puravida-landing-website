@@ -184,7 +184,8 @@ export interface CreateUserData {
   phone: string;
   gender: string;
   status: number;
-  country_id: number;
+  country_id: number; // Country ID for phone number country
+  nationality_id: number; // Country ID for user's nationality
   instagram_handle: string;
   image?: string;
 }
@@ -216,7 +217,12 @@ export async function getCountries(): Promise<Country[]> {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve([
-          { id: 1, name: "United Arab Emirates", short_code: "AE", country_code: 971 },
+          {
+            id: 1,
+            name: "United Arab Emirates",
+            short_code: "AE",
+            country_code: 971,
+          },
           { id: 2, name: "Lebanon", short_code: "LB", country_code: 961 },
           { id: 3, name: "United States", short_code: "US", country_code: 1 },
           { id: 4, name: "United Kingdom", short_code: "GB", country_code: 44 },
@@ -301,7 +307,8 @@ export interface CreateManualUserData {
   first_name: string;
   last_name: string;
   phone: string;
-  country_id: number;
+  country_id: number; // Country ID for phone number country
+  nationality_id: number; // Country ID for user's nationality
   email?: string;
   instagram_handle: string;
   dob?: string;

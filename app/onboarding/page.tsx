@@ -560,13 +560,29 @@ function OnboardingPageContent() {
           // Clean Instagram handle (remove @ if present)
           const instagram_handle = formData.instagram.replace(/^@+/, "");
 
-          // Convert nationality string to country_id number
-          const country_id = parseInt(formData.nationality, 10);
-
-          // Validate country_id
-          if (isNaN(country_id)) {
+          // Find country_id for phone number country (based on phoneCode)
+          const phoneCountry = countries.find(
+            (c) =>
+              String(c.country_code) === formData.phoneCode ||
+              c.country_code === parseInt(formData.phoneCode, 10)
+          );
+          const country_id = phoneCountry?.id;
+          
+          if (!country_id) {
             console.error(
-              "Invalid country_id:",
+              "Invalid country_id for phone code:",
+              formData.phoneCode,
+              "Could not find matching country"
+            );
+          }
+
+          // Convert nationality string to nationality_id number
+          const nationality_id = parseInt(formData.nationality, 10);
+
+          // Validate nationality_id
+          if (isNaN(nationality_id)) {
+            console.error(
+              "Invalid nationality_id:",
               formData.nationality,
               "Could not parse to number"
             );
@@ -584,7 +600,7 @@ function OnboardingPageContent() {
           const invity_number = getInvityNumber();
 
           // Determine manual_status based on restricted countries and gender
-          // Restricted countries: Match by exact country_id from /api/get-country-code
+          // Restricted countries: Match by exact nationality_id from /api/get-country-code
           // manual_status = 1: Restricted countries (India, Egypt, etc.) AND Male
           // manual_status = 2: All others
           const restrictedCountryIds = [
@@ -595,8 +611,8 @@ function OnboardingPageContent() {
             // Add more restricted country IDs as needed (Sri Lanka, Nepal, etc.)
           ];
 
-          // Check if country_id exactly matches one of the restricted country IDs
-          const isRestrictedCountry = restrictedCountryIds.includes(country_id);
+          // Check if nationality_id exactly matches one of the restricted country IDs
+          const isRestrictedCountry = restrictedCountryIds.includes(nationality_id);
 
           // Check if user is male (genderValue === "1")
           const isMale = genderValue === "1";
@@ -606,7 +622,7 @@ function OnboardingPageContent() {
 
           // Log manual_status determination for debugging
           console.log(
-            `manual_status determination: country_id=${country_id}, isRestricted=${isRestrictedCountry}, isMale=${isMale}, manual_status=${manual_status}`
+            `manual_status determination: nationality_id=${nationality_id}, isRestricted=${isRestrictedCountry}, isMale=${isMale}, manual_status=${manual_status}`
           );
 
           // Create manual user
@@ -614,7 +630,8 @@ function OnboardingPageContent() {
             first_name,
             last_name,
             phone: formData.mobile, // Just the number without country code for manual endpoint
-            country_id,
+            country_id: country_id!, // Country ID for phone number country
+            nationality_id, // Country ID for user's nationality
             email: formData.email || undefined,
             instagram_handle,
             gender: genderValue, // Use "1" or "2" format
