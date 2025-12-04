@@ -21,7 +21,8 @@ const MOCK_EVENT_DATA: EventDetails = {
   venue: {
     id: "9e68147d-0b20-477e-85c1-31c6a0232989",
     name: "Reunion DXB",
-    image: "https://api.puravida.events/storage/club_images/eOdiR9gsE0MsIqGAQviyKQG58PQ2IsPCkunMGeVe.webp",
+    image:
+      "https://api.puravida.events/storage/club_images/eOdiR9gsE0MsIqGAQviyKQG58PQ2IsPCkunMGeVe.webp",
   },
   date_time: "2025-12-05 23:00:00",
   end_date: "2025-12-06 03:00:00",
@@ -145,8 +146,11 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     setIsLoading(true);
     // Simulate API delay
     setTimeout(() => {
-      // Use mock data for the UUID event, or fallback to API for other events
-      if (eventId === "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0") {
+      // Use mock data for the abla-bakh event, or fallback to API for other events
+      if (
+        eventId === "abla-bakh" ||
+        eventId === "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0"
+      ) {
         requestAnimationFrame(() => {
           setEvent(MOCK_EVENT_DATA);
           setIsLoading(false);

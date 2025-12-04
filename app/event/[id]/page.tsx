@@ -11,6 +11,7 @@ export async function generateStaticParams() {
     { id: "summer-vibes-2024" },
     { id: "rooftop-sessions" },
     { id: "pool-party" },
+    { id: "abla-bakh" },
   ];
 }
 
