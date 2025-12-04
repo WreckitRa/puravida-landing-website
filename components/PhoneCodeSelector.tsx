@@ -113,7 +113,7 @@ export default function PhoneCodeSelector({
           onFocus?.();
         }}
         onBlur={onBlur}
-        className="w-full px-3 py-4 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 cursor-pointer font-medium text-sm flex items-center justify-between gap-2 min-w-[120px]"
+        className="w-full px-3 py-2.5 lg:py-3 border-2 border-gray-300 bg-white text-black focus:outline-none focus:border-black focus:ring-4 focus:ring-gray-200 transition-all duration-200 rounded-xl hover:border-gray-400 cursor-pointer font-medium text-sm flex items-center justify-between gap-2 min-w-[120px] h-full"
       >
         <span className="flex items-center gap-2">
           <span className="text-lg">{selectedCountry.flag}</span>
@@ -137,7 +137,7 @@ export default function PhoneCodeSelector({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+        <div className="absolute z-[100] mt-2 w-full bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-80 overflow-hidden">
           {/* Search input */}
           <div className="p-3 border-b border-gray-200 sticky top-0 bg-white">
             <input

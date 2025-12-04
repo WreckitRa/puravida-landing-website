@@ -760,3 +760,230 @@ export async function savePartialOnboarding(
     };
   }
 }
+
+// Event & Guestlist API
+
+export interface EventDetails {
+  id: string;
+  event_name: string;
+  main_artist_name: string;
+  other_artist_name?: string;
+  venue: {
+    id: string;
+    name: string;
+    image?: string;
+  };
+  date_time: string;
+  end_date?: string;
+  guest_close_date_time?: string;
+  file?: string;
+  address: string;
+  guest_status: number;
+  description?: string;
+  priority_entry_rules?: string;
+  guest_max_capacity?: number;
+  current_guestlist_count: number;
+  is_guestlist_open: boolean;
+  is_guestlist_full: boolean;
+  table_max_capacity?: number;
+  booking_status: number;
+  age_policy?: string;
+  type: number;
+  dress_codes?: Array<{
+    id: number;
+    name: string;
+  }>;
+  images?: Array<{
+    id: string;
+    name: string;
+    url: string;
+  }>;
+  club_profile?: {
+    id: string;
+    logo?: string;
+    club: {
+      id: string;
+      name: string;
+    };
+  };
+  restaurant_profile?: any;
+  total_wishlist_count?: number;
+}
+
+export interface GetEventDetailsResponse {
+  success?: boolean;
+  data?: EventDetails;
+  message?: string;
+}
+
+export interface RegisterToGuestlistData {
+  country_code: string;
+  phone: string;
+  first_name?: string;
+  last_name?: string;
+  plus_one_count?: number;
+  referral_link?: string;
+  utm_source?: string;
+  utm_campaign?: string;
+  utm_medium?: string;
+}
+
+export interface GuestlistRegistrationResult {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  plus_one_count?: number;
+  already_registered: boolean;
+  registered_at: string;
+}
+
+export interface RegisterToGuestlistResponse {
+  success?: boolean;
+  data?: GuestlistRegistrationResult;
+  message?: string;
+}
+
+/**
+ * Get event details by event ID
+ */
+export async function getEventDetails(
+  eventId: string
+): Promise<GetEventDetailsResponse> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: getEventDetails", eventId);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          data: {
+            id: eventId,
+            event_name: "Summer Vibes 2024",
+            main_artist_name: "DJ Khaled",
+            other_artist_name: "Special Guests",
+            venue: {
+              id: "venue-1",
+              name: "White Beach, Atlantis The Palm",
+            },
+            date_time: "2024-07-15 20:00:00",
+            end_date: "2024-07-16 02:00:00",
+            file: "https://api.puravida.events/storage/event_images/JjAAlE9wi4V3fRyUQmbp10HC8AOSJKHMjT7GP862.mp4",
+            address: "Dubai, UAE",
+            guest_status: 1,
+            description: "Join us for an unforgettable night under the stars!",
+            guest_max_capacity: 500,
+            current_guestlist_count: 342,
+            is_guestlist_open: true,
+            is_guestlist_full: false,
+            booking_status: 1,
+            type: 1,
+          },
+          message: "Event details retrieved successfully.",
+        });
+      }, 300);
+    });
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/public/events/${eventId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    const result: GetEventDetailsResponse = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: result.message || "Failed to fetch event details",
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+    };
+  } catch (error) {
+    console.error("API Error fetching event details:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Network error. Please try again.",
+    };
+  }
+}
+
+/**
+ * Register to event guestlist
+ */
+export async function registerToGuestlist(
+  eventId: string,
+  data: RegisterToGuestlistData
+): Promise<RegisterToGuestlistResponse> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: registerToGuestlist", eventId, data);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          data: {
+            id: "guestlist-entry-uuid",
+            first_name: data.first_name || "",
+            last_name: data.last_name || "",
+            phone: data.phone,
+            plus_one_count: data.plus_one_count || 0,
+            already_registered: false,
+            registered_at: new Date().toISOString(),
+          },
+          message: "Successfully added to guestlist.",
+        });
+      }, 1000);
+    });
+  }
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/public/events/${eventId}/guestlist/register`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    const result: RegisterToGuestlistResponse = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: result.message || "Failed to register to guestlist",
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+    };
+  } catch (error) {
+    console.error("API Error registering to guestlist:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Network error. Please try again.",
+    };
+  }
+}

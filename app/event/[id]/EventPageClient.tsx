@@ -1,77 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { trackPageView, trackEvent, trackButtonClick } from "@/lib/analytics";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
-
-// Mock event data - in production, this would come from an API
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const MOCK_EVENTS: Record<string, any> = {
-  "summer-vibes-2024": {
-    id: "summer-vibes-2024",
-    title: "Summer Vibes 2024",
-    subtitle: "The Ultimate Beach Party",
-    date: "Saturday, July 15, 2024",
-    time: "10:00 PM - 4:00 AM",
-    venue: "White Beach, Atlantis The Palm",
-    location: "Dubai, UAE",
-    description:
-      "Join us for an unforgettable night under the stars! Experience Dubai's hottest DJ lineup, premium cocktails, and the most exclusive beach party of the summer. Dress code: Beach chic & glamorous.",
-    image:
-      "https://api.puravida.events/storage/event_images/JjAAlE9wi4V3fRyUQmbp10HC8AOSJKHMjT7GP862.mp4", // Placeholder - you can add event images
-    dj: "DJ Khaled & Special Guests",
-    price: "Free Entry (Guest List)",
-    capacity: 500,
-    currentGuests: 342,
-    tags: ["Beach Party", "DJ Set", "VIP", "Outdoor"],
-    organizer: "PuraVida",
-  },
-  "rooftop-sessions": {
-    id: "rooftop-sessions",
-    title: "Rooftop Sessions",
-    subtitle: "Sky-High Nightlife Experience",
-    date: "Friday, August 2, 2024",
-    time: "9:00 PM - 3:00 AM",
-    venue: "Ce La Vi, Address Sky View",
-    location: "Dubai, UAE",
-    description:
-      "Elevate your night at Dubai's most exclusive rooftop venue. Stunning city views, world-class DJs, and premium bottle service. Limited guest list spots available.",
-    image: "/assets/puravida-main-logo.png",
-    dj: "International DJ Lineup",
-    price: "Free Entry (Guest List)",
-    capacity: 300,
-    currentGuests: 198,
-    tags: ["Rooftop", "City Views", "Premium", "Exclusive"],
-    organizer: "PuraVida",
-  },
-  "pool-party": {
-    id: "pool-party",
-    title: "Pool Party Paradise",
-    subtitle: "Day to Night Celebration",
-    date: "Sunday, July 28, 2024",
-    time: "2:00 PM - 10:00 PM",
-    venue: "Nikki Beach Dubai",
-    location: "Dubai, UAE",
-    description:
-      "Dive into the ultimate pool party experience! Day-to-night celebration with live DJs, poolside cocktails, and the most vibrant crowd in Dubai.",
-    image: "/assets/puravida-main-logo.png",
-    dj: "Live DJ Sets All Day",
-    price: "Free Entry (Guest List)",
-    capacity: 400,
-    currentGuests: 267,
-    tags: ["Pool Party", "Day Party", "Beach Club", "Vibrant"],
-    organizer: "PuraVida",
-  },
-};
-
-interface GuestListEntry {
-  name: string;
-  phone: string;
-  countryCode: string;
-  timestamp: string;
-}
+import {
+  getEventDetails,
+  registerToGuestlist,
+  type EventDetails,
+} from "@/lib/api";
 
 interface EventPageClientProps {
   eventId: string;
@@ -79,53 +18,113 @@ interface EventPageClientProps {
 
 export default function EventPageClient({ eventId }: EventPageClientProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [guestName, setGuestName] = useState("");
+  const [event, setEvent] = useState<EventDetails | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [countryCode, setCountryCode] = useState("971"); // Default to UAE
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState("");
-  const [guestList, setGuestList] = useState<GuestListEntry[]>([]);
   const [isFormVisible, setIsFormVisible] = useState(false);
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  const firstNameInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
-  // Compute event data from eventId using useMemo instead of state
-  const event = useMemo(() => {
-    return MOCK_EVENTS[eventId] || MOCK_EVENTS["summer-vibes-2024"];
-  }, [eventId]);
+  // Get the event banner image/video URL
+  // Priority: images[0].name > event.file
+  const eventBannerUrl =
+    event?.images && event.images.length > 0
+      ? event.images[0].name
+      : event?.file;
 
-  // Check if the event image is a video file
-  // Since event is already memoized, we can compute this directly
+  // Check if the event banner is a video file
   const isVideo = (() => {
-    if (!event?.image) return false;
+    if (!eventBannerUrl) return false;
     const videoExtensions = [".mp4", ".webm", ".ogg", ".mov"];
-    const url = event.image.toLowerCase();
+    const url = eventBannerUrl.toLowerCase();
     return videoExtensions.some((ext) => url.includes(ext));
   })();
+
+  // Format date and time from API response
+  const formatEventDate = (dateTime: string) => {
+    const date = new Date(dateTime);
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return `${days[date.getDay()]}, ${
+      months[date.getMonth()]
+    } ${date.getDate()}, ${date.getFullYear()}`;
+  };
+
+  const formatEventTime = (dateTime: string, endDate?: string) => {
+    const start = new Date(dateTime);
+    const startTime = start.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    if (endDate) {
+      const end = new Date(endDate);
+      const endTime = end.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+      return `${startTime} - ${endTime}`;
+    }
+    return startTime;
+  };
 
   useEffect(() => {
     // Track page view
     trackPageView(`/event/${eventId}`);
 
-    // Load guest list from localStorage (mock persistence)
-    const storedGuests = localStorage.getItem(`event_${eventId}_guests`);
-    if (storedGuests) {
+    // Fetch event details from API
+    const fetchEvent = async () => {
+      setIsLoading(true);
       try {
-        const guests = JSON.parse(storedGuests);
-        // Defer setState to avoid synchronous state updates in effect
-        requestAnimationFrame(() => {
-          setGuestList(guests);
-        });
-      } catch (e) {
-        console.error("Error loading guest list:", e);
+        const result = await getEventDetails(eventId);
+        if (result.success && result.data) {
+          // Defer setState to avoid synchronous state updates in effect
+          requestAnimationFrame(() => {
+            setEvent(result.data!);
+            setIsLoading(false);
+            setIsVisible(true);
+          });
+        } else {
+          setError(result.message || "Event not found");
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error("Error fetching event:", err);
+        setError("Failed to load event details");
+        setIsLoading(false);
       }
-    }
+    };
 
-    // Fade in animation
-    requestAnimationFrame(() => {
-      setIsVisible(true);
-    });
+    fetchEvent();
   }, [eventId]);
 
   // Intersection Observer to detect when form is visible
@@ -156,11 +155,20 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     setError("");
 
     // Validation
-    if (!guestName.trim()) {
-      setError("Please enter your name");
+    if (!firstName.trim()) {
+      setError("Please enter your first name");
       trackEvent("event_guestlist_error", {
         event_id: eventId,
-        error_type: "missing_name",
+        error_type: "missing_first_name",
+      });
+      return;
+    }
+
+    if (!lastName.trim()) {
+      setError("Please enter your last name");
+      trackEvent("event_guestlist_error", {
+        event_id: eventId,
+        error_type: "missing_last_name",
       });
       return;
     }
@@ -185,66 +193,119 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       return;
     }
 
+    // Check if guestlist is open and not full
+    if (!event?.is_guestlist_open) {
+      setError("Guestlist registration is closed for this event.");
+      return;
+    }
+
+    if (event?.is_guestlist_full) {
+      setError("Guestlist is full for this event.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Track submission attempt
     trackEvent("event_guestlist_submit", {
       event_id: eventId,
-      event_name: event?.title,
+      event_name: event?.event_name,
     });
 
-    // Simulate API call (mock)
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Extract UTM parameters from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const utmSource = urlParams.get("utm_source");
+    const utmCampaign = urlParams.get("utm_campaign");
+    const utmMedium = urlParams.get("utm_medium");
 
-    // Add to guest list
-    const newGuest: GuestListEntry = {
-      name: guestName.trim(),
-      phone: guestPhone.trim(),
-      countryCode,
-      timestamp: new Date().toISOString(),
-    };
+    // Register to guestlist via API
+    try {
+      const result = await registerToGuestlist(eventId, {
+        country_code: countryCode,
+        phone: guestPhone.trim(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        plus_one_count: 0,
+        referral_link: window.location.href,
+        utm_source: utmSource || undefined,
+        utm_campaign: utmCampaign || undefined,
+        utm_medium: utmMedium || undefined,
+      });
 
-    const updatedGuests = [...guestList, newGuest];
-    setGuestList(updatedGuests);
+      if (result.success && result.data) {
+        // Track success
+        trackEvent("event_guestlist_success", {
+          event_id: eventId,
+          event_name: event?.event_name,
+          already_registered: result.data.already_registered,
+        });
 
-    // Save to localStorage (mock persistence)
-    localStorage.setItem(
-      `event_${eventId}_guests`,
-      JSON.stringify(updatedGuests)
-    );
+        setIsSubmitted(true);
+        setIsSubmitting(false);
+        setFirstName("");
+        setLastName("");
+        setGuestPhone("");
 
-    // Track success
-    trackEvent("event_guestlist_success", {
-      event_id: eventId,
-      event_name: event?.title,
-    });
+        // Refresh event data to get updated guest count
+        const updatedEvent = await getEventDetails(eventId);
+        if (updatedEvent.success && updatedEvent.data) {
+          setEvent(updatedEvent.data);
+        }
 
-    setIsSubmitted(true);
-    setIsSubmitting(false);
-    setGuestName("");
-    setGuestPhone("");
-
-    // Reset success message after 5 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-    }, 5000);
+        // Reset success message after 5 seconds
+        setTimeout(() => {
+          setIsSubmitted(false);
+        }, 5000);
+      } else {
+        setError(result.message || "Failed to register to guestlist");
+        setIsSubmitting(false);
+        trackEvent("event_guestlist_error", {
+          event_id: eventId,
+          error_type: "api_error",
+          error_message: result.message,
+        });
+      }
+    } catch (err) {
+      console.error("Error registering to guestlist:", err);
+      setError("Network error. Please try again.");
+      setIsSubmitting(false);
+      trackEvent("event_guestlist_error", {
+        event_id: eventId,
+        error_type: "network_error",
+      });
+    }
   };
 
   const scrollToForm = () => {
     if (formRef.current) {
       formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      // Focus the name input after a short delay to ensure scroll completes
+      // Focus the first name input after a short delay to ensure scroll completes
       setTimeout(() => {
-        nameInputRef.current?.focus();
+        firstNameInputRef.current?.focus();
       }, 300);
     }
     trackButtonClick("Join Guest List Sticky", 0, "event-page");
   };
 
-  if (!event) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white text-xl">Loading event...</div>
+      </div>
+    );
+  }
+
+  if (!event || error) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-white text-xl mb-4">
+            {error || "Event not found"}
+          </div>
+          <Link href="/" className="text-white/60 hover:text-white underline">
+            Go back home
+          </Link>
+        </div>
       </div>
     );
   }
@@ -279,38 +340,46 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
           <div className="space-y-4 lg:space-y-3 animate-slide-in-right w-full">
             {/* Event Image/Poster - Full width on mobile */}
             <div className="relative w-full aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-0 lg:border-2 border-white/10 rounded-none lg:rounded-2xl">
-              {event.image && isVideo ? (
+              {eventBannerUrl && isVideo ? (
                 <video
-                  src={event.image}
+                  src={eventBannerUrl}
                   autoPlay
                   loop
                   muted
                   playsInline
                   className="w-full h-full object-cover"
                 />
-              ) : event.image ? (
+              ) : eventBannerUrl ? (
                 <Image
-                  src={event.image}
-                  alt={event.title}
+                  src={eventBannerUrl}
+                  alt={event.event_name}
                   fill
                   className="object-cover"
                 />
               ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
 
-              {/* Tags at top */}
-              <div className="absolute top-4 left-4 right-4">
-                <div className="flex flex-wrap gap-2">
-                  {event.tags.map((tag: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="bg-white/20 backdrop-blur-sm text-white px-2 py-1 lg:px-3 lg:py-1 rounded-full text-xs font-medium"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+              {/* Tags at top - using dress codes or age policy */}
+              {(event.dress_codes && event.dress_codes.length > 0) ||
+              event.age_policy ? (
+                <div className="absolute top-4 left-4 right-4">
+                  <div className="flex flex-wrap gap-2">
+                    {event.age_policy && (
+                      <span className="bg-white/20 backdrop-blur-sm text-white px-2 py-1 lg:px-3 lg:py-1 rounded-full text-xs font-medium">
+                        {event.age_policy}
+                      </span>
+                    )}
+                    {event.dress_codes?.map((dressCode) => (
+                      <span
+                        key={dressCode.id}
+                        className="bg-white/20 backdrop-blur-sm text-white px-2 py-1 lg:px-3 lg:py-1 rounded-full text-xs font-medium"
+                      >
+                        {dressCode.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               {/* Event Details Overlay at Bottom */}
               <div className="absolute bottom-0 left-0 right-0 p-4 lg:p-5">
@@ -334,11 +403,11 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         />
                       </svg>
                       <span className="text-white font-medium">
-                        {event.date}
+                        {formatEventDate(event.date_time)}
                       </span>
                       <span className="text-white/50">•</span>
                       <span className="text-white font-medium">
-                        {event.time}
+                        {formatEventTime(event.date_time, event.end_date)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm lg:text-base">
@@ -362,7 +431,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         />
                       </svg>
                       <span className="text-white font-medium">
-                        {event.venue}
+                        {event.venue?.name || event.address}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm lg:text-base">
@@ -379,7 +448,12 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                           d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
                         />
                       </svg>
-                      <span className="text-white font-medium">{event.dj}</span>
+                      <span className="text-white font-medium">
+                        {event.main_artist_name}
+                        {event.other_artist_name
+                          ? ` & ${event.other_artist_name}`
+                          : ""}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -394,16 +468,28 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
             style={{ animationDelay: "0.2s" }}
           >
             {/* Guest List Card */}
-            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border-2 border-white/20 rounded-3xl p-4 lg:p-5 lg:p-6 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border-2 border-white/20 rounded-3xl p-4 lg:p-6 relative overflow-visible">
               {/* Animated background gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 animate-pulse-slow"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 animate-pulse-slow rounded-3xl overflow-hidden"></div>
 
               <div className="relative z-10">
                 <div className="text-center mb-3 lg:mb-4">
                   <h3 className="text-xl lg:text-2xl font-bold text-white mb-1">
                     Join the Guest List
                   </h3>
-                  <p className="text-white/80 text-xs">{event.price}</p>
+                  <p className="text-white/80 text-xs">
+                    Free Entry (Guest List)
+                  </p>
+                  {!event.is_guestlist_open && (
+                    <p className="text-red-400 text-xs mt-1">
+                      Registration is closed
+                    </p>
+                  )}
+                  {event.is_guestlist_full && (
+                    <p className="text-red-400 text-xs mt-1">
+                      Guestlist is full
+                    </p>
+                  )}
                 </div>
 
                 {/* Success Message */}
@@ -447,23 +533,52 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                   onSubmit={handleSubmit}
                   className="space-y-2.5 lg:space-y-3"
                 >
-                  <div>
-                    <label
-                      htmlFor="guestName"
-                      className="block text-white font-medium mb-1.5 text-xs"
-                    >
-                      Full Name
-                    </label>
-                    <input
-                      ref={nameInputRef}
-                      type="text"
-                      id="guestName"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      placeholder="Enter your full name"
-                      className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
-                      disabled={isSubmitting || isSubmitted}
-                    />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label
+                        htmlFor="firstName"
+                        className="block text-white font-medium mb-1.5 text-xs"
+                      >
+                        First Name
+                      </label>
+                      <input
+                        ref={firstNameInputRef}
+                        type="text"
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="First name"
+                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        disabled={
+                          isSubmitting ||
+                          isSubmitted ||
+                          !event.is_guestlist_open ||
+                          event.is_guestlist_full
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="lastName"
+                        className="block text-white font-medium mb-1.5 text-xs"
+                      >
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Last name"
+                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        disabled={
+                          isSubmitting ||
+                          isSubmitted ||
+                          !event.is_guestlist_open ||
+                          event.is_guestlist_full
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -473,12 +588,14 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                     >
                       Phone Number
                     </label>
-                    <div className="flex gap-2">
-                      <PhoneCodeSelector
-                        value={countryCode}
-                        onChange={setCountryCode}
-                        className="flex-shrink-0"
-                      />
+                    <div className="flex gap-2 items-stretch">
+                      <div className="flex-shrink-0">
+                        <PhoneCodeSelector
+                          value={countryCode}
+                          onChange={setCountryCode}
+                          className="h-full"
+                        />
+                      </div>
                       <input
                         type="tel"
                         id="guestPhone"
@@ -489,14 +606,24 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         }}
                         placeholder="501234567"
                         className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
-                        disabled={isSubmitting || isSubmitted}
+                        disabled={
+                          isSubmitting ||
+                          isSubmitted ||
+                          !event.is_guestlist_open ||
+                          event.is_guestlist_full
+                        }
                       />
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={isSubmitting || isSubmitted}
+                    disabled={
+                      isSubmitting ||
+                      isSubmitted ||
+                      !event.is_guestlist_open ||
+                      event.is_guestlist_full
+                    }
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
                     onClick={() =>
                       trackButtonClick("Join Guest List", 0, "event-page")
@@ -563,11 +690,6 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                     )}
                   </button>
                 </form>
-
-                {/* Terms */}
-                <p className="text-white/40 text-xs text-center mt-2">
-                  By joining, you agree to receive event updates via SMS
-                </p>
               </div>
             </div>
           </div>
