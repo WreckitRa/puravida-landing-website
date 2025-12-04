@@ -8,8 +8,8 @@ import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
 import { registerToGuestlist, type EventDetails } from "@/lib/api";
 
-// Local mock event data - temporarily using this instead of API
-const MOCK_EVENT_DATA: EventDetails = {
+// Static event data - no API fetching
+const EVENT_DATA: EventDetails = {
   id: "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0",
   event_name: "FRIDAYS AT REUNION",
   main_artist_name: "BAKH,ABLA",
@@ -49,14 +49,11 @@ const MOCK_EVENT_DATA: EventDetails = {
   total_wishlist_count: 0,
 };
 
-interface EventPageClientProps {
-  eventId: string;
-}
+const EVENT_ID = "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0";
 
-export default function EventPageClient({ eventId }: EventPageClientProps) {
+export default function AblaBakhPage() {
   const [isVisible, setIsVisible] = useState(false);
-  const [event, setEvent] = useState<EventDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [event] = useState<EventDetails>(EVENT_DATA);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -136,19 +133,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
   useEffect(() => {
     // Track page view
-    trackPageView(`/event/${eventId}`);
+    trackPageView(`/abla-bakh`);
 
-    // Use local mock data only - no API fetching
-    setIsLoading(true);
-    // Simulate slight delay for smooth transition
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        setEvent(MOCK_EVENT_DATA);
-        setIsLoading(false);
-        setIsVisible(true);
-      });
-    }, 100);
-  }, [eventId]);
+    // Show content immediately - no loading needed
+    requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
+  }, []);
 
   // Intersection Observer to detect when form is visible
   useEffect(() => {
@@ -181,7 +172,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!firstName.trim()) {
       setError("Please enter your first name");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: EVENT_ID,
         error_type: "missing_first_name",
       });
       return;
@@ -190,7 +181,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!lastName.trim()) {
       setError("Please enter your last name");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: EVENT_ID,
         error_type: "missing_last_name",
       });
       return;
@@ -199,7 +190,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!guestPhone.trim()) {
       setError("Please enter your phone number");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: EVENT_ID,
         error_type: "missing_phone",
       });
       return;
@@ -210,7 +201,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!phoneRegex.test(guestPhone.replace(/\s/g, ""))) {
       setError("Please enter a valid phone number");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: EVENT_ID,
         error_type: "invalid_phone",
       });
       return;
@@ -231,7 +222,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     // Track submission attempt
     trackEvent("event_guestlist_submit", {
-      event_id: eventId,
+      event_id: EVENT_ID,
       event_name: event?.event_name,
     });
 
@@ -243,7 +234,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     // Register to guestlist via API
     try {
-      const result = await registerToGuestlist(eventId, {
+      const result = await registerToGuestlist(EVENT_ID, {
         country_code: countryCode,
         phone: guestPhone.trim(),
         first_name: firstName.trim(),
@@ -258,7 +249,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       if (result.success && result.data) {
         // Track success
         trackEvent("event_guestlist_success", {
-          event_id: eventId,
+          event_id: EVENT_ID,
           event_name: event?.event_name,
           already_registered: result.data.already_registered,
         });
@@ -269,14 +260,6 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         setLastName("");
         setGuestPhone("");
 
-        // Update guest count locally (no API refresh)
-        if (event) {
-          setEvent({
-            ...event,
-            current_guestlist_count: event.current_guestlist_count + 1,
-          });
-        }
-
         // Reset success message after 5 seconds
         setTimeout(() => {
           setIsSubmitted(false);
@@ -285,7 +268,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         setError(result.message || "Failed to register to guestlist");
         setIsSubmitting(false);
         trackEvent("event_guestlist_error", {
-          event_id: eventId,
+          event_id: EVENT_ID,
           error_type: "api_error",
           error_message: result.message,
         });
@@ -295,7 +278,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       setError("Network error. Please try again.");
       setIsSubmitting(false);
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: EVENT_ID,
         error_type: "network_error",
       });
     }
@@ -311,29 +294,6 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     }
     trackButtonClick("Join Guest List Sticky", 0, "event-page");
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-xl">Loading event...</div>
-      </div>
-    );
-  }
-
-  if (!event || error) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-white text-xl mb-4">
-            {error || "Event not found"}
-          </div>
-          <Link href="/" className="text-white/60 hover:text-white underline">
-            Go back home
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black relative overflow-x-hidden">
@@ -359,7 +319,6 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
-        {" "}
         <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 w-full lg:items-center">
           {/* Left Column - Event Details */}
           <div className="space-y-4 lg:space-y-3 animate-slide-in-right w-full">
@@ -611,7 +570,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                       htmlFor="guestPhone"
                       className="block text-white font-medium mb-1.5 text-xs"
                     >
-                      d3pl0$ Phone Number
+                      Phone Number
                     </label>
                     <div className="flex gap-2 items-stretch">
                       <div className="flex-shrink-0">
@@ -752,3 +711,4 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     </div>
   );
 }
+
