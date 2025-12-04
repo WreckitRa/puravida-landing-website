@@ -12,6 +12,46 @@ import {
   type EventDetails,
 } from "@/lib/api";
 
+// Local mock event data - temporarily using this instead of API
+const MOCK_EVENT_DATA: EventDetails = {
+  id: "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0",
+  event_name: "FRIDAYS AT REUNION",
+  main_artist_name: "BAKH,ABLA",
+  other_artist_name: undefined,
+  venue: {
+    id: "9e68147d-0b20-477e-85c1-31c6a0232989",
+    name: "Reunion DXB",
+    image: "https://api.puravida.events/storage/club_images/eOdiR9gsE0MsIqGAQviyKQG58PQ2IsPCkunMGeVe.webp",
+  },
+  date_time: "2025-12-05 23:00:00",
+  end_date: "2025-12-06 03:00:00",
+  guest_close_date_time: "2025-12-05 22:00",
+  file: "https://api.puravida.events/storage/event_images",
+  address: "Radisson Blu Hotel, Dubai",
+  guest_status: 1,
+  description: ".\r\n- Guestlist closes at 10:00PM \r\n- Door Closes at 1:00AM",
+  priority_entry_rules: undefined,
+  guest_max_capacity: 100,
+  current_guestlist_count: 25,
+  is_guestlist_open: true,
+  is_guestlist_full: false,
+  table_max_capacity: 100,
+  booking_status: 1,
+  age_policy: undefined,
+  type: 1,
+  dress_codes: [],
+  images: [
+    {
+      id: "a081f44a-8597-4fc6-b271-64080f9269fd",
+      name: "https://api.puravida.events/storage/event_images/P4sYLUulB3q9p2EQJDPu9B21cgZKPgvKf6wF8tfi.mp4",
+      url: "https://api.puravida.events/storage/event_images/https://api.puravida.events/storage/event_images/P4sYLUulB3q9p2EQJDPu9B21cgZKPgvKf6wF8tfi.mp4",
+    },
+  ],
+  club_profile: undefined,
+  restaurant_profile: undefined,
+  total_wishlist_count: 0,
+};
+
 interface EventPageClientProps {
   eventId: string;
 }
@@ -101,30 +141,39 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     // Track page view
     trackPageView(`/event/${eventId}`);
 
-    // Fetch event details from API
-    const fetchEvent = async () => {
-      setIsLoading(true);
-      try {
-        const result = await getEventDetails(eventId);
-        if (result.success && result.data) {
-          // Defer setState to avoid synchronous state updates in effect
-          requestAnimationFrame(() => {
-            setEvent(result.data!);
-            setIsLoading(false);
-            setIsVisible(true);
-          });
-        } else {
-          setError(result.message || "Event not found");
+    // Use local mock data instead of API for now
+    setIsLoading(true);
+    // Simulate API delay
+    setTimeout(() => {
+      // Use mock data for the UUID event, or fallback to API for other events
+      if (eventId === "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0") {
+        requestAnimationFrame(() => {
+          setEvent(MOCK_EVENT_DATA);
           setIsLoading(false);
-        }
-      } catch (err) {
-        console.error("Error fetching event:", err);
-        setError("Failed to load event details");
-        setIsLoading(false);
+          setIsVisible(true);
+        });
+      } else {
+        // For other event IDs, still try API (like summer-vibes-2024)
+        getEventDetails(eventId)
+          .then((result) => {
+            if (result.success && result.data) {
+              requestAnimationFrame(() => {
+                setEvent(result.data!);
+                setIsLoading(false);
+                setIsVisible(true);
+              });
+            } else {
+              setError(result.message || "Event not found");
+              setIsLoading(false);
+            }
+          })
+          .catch((err) => {
+            console.error("Error fetching event:", err);
+            setError("Failed to load event details");
+            setIsLoading(false);
+          });
       }
-    };
-
-    fetchEvent();
+    }, 100);
   }, [eventId]);
 
   // Intersection Observer to detect when form is visible
