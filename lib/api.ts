@@ -824,8 +824,10 @@ export interface RegisterToGuestlistData {
   plus_one_count?: number;
   referral_link?: string;
   utm_source?: string;
-  utm_campaign?: string;
   utm_medium?: string;
+  utm_campaign?: string;
+  utm_term?: string;
+  utm_content?: string;
 }
 
 export interface GuestlistRegistrationResult {

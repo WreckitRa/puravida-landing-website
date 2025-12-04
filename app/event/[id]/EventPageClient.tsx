@@ -235,11 +235,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       event_name: event?.event_name,
     });
 
-    // Extract UTM parameters from URL
+    // Extract ALL UTM parameters from URL
     const urlParams = new URLSearchParams(window.location.search);
     const utmSource = urlParams.get("utm_source");
-    const utmCampaign = urlParams.get("utm_campaign");
     const utmMedium = urlParams.get("utm_medium");
+    const utmCampaign = urlParams.get("utm_campaign");
+    const utmTerm = urlParams.get("utm_term");
+    const utmContent = urlParams.get("utm_content");
 
     // Register to guestlist via API
     try {
@@ -251,8 +253,10 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         plus_one_count: 0,
         referral_link: window.location.href,
         utm_source: utmSource || undefined,
-        utm_campaign: utmCampaign || undefined,
         utm_medium: utmMedium || undefined,
+        utm_campaign: utmCampaign || undefined,
+        utm_term: utmTerm || undefined,
+        utm_content: utmContent || undefined,
       });
 
       if (result.success && result.data) {
