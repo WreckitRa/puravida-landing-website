@@ -6,11 +6,7 @@ import Link from "next/link";
 import { trackPageView, trackEvent, trackButtonClick } from "@/lib/analytics";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
-import {
-  getEventDetails,
-  registerToGuestlist,
-  type EventDetails,
-} from "@/lib/api";
+import { registerToGuestlist, type EventDetails } from "@/lib/api";
 
 // Local mock event data - temporarily using this instead of API
 const MOCK_EVENT_DATA: EventDetails = {
@@ -142,41 +138,15 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     // Track page view
     trackPageView(`/event/${eventId}`);
 
-    // Use local mock data instead of API for now
+    // Use local mock data only - no API fetching
     setIsLoading(true);
-    // Simulate API delay
+    // Simulate slight delay for smooth transition
     setTimeout(() => {
-      // Use mock data for the abla-bakh event, or fallback to API for other events
-      if (
-        eventId === "abla-bakh" ||
-        eventId === "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0"
-      ) {
-        requestAnimationFrame(() => {
-          setEvent(MOCK_EVENT_DATA);
-          setIsLoading(false);
-          setIsVisible(true);
-        });
-      } else {
-        // For other event IDs, still try API (like summer-vibes-2024)
-        getEventDetails(eventId)
-          .then((result) => {
-            if (result.success && result.data) {
-              requestAnimationFrame(() => {
-                setEvent(result.data!);
-                setIsLoading(false);
-                setIsVisible(true);
-              });
-            } else {
-              setError(result.message || "Event not found");
-              setIsLoading(false);
-            }
-          })
-          .catch((err) => {
-            console.error("Error fetching event:", err);
-            setError("Failed to load event details");
-            setIsLoading(false);
-          });
-      }
+      requestAnimationFrame(() => {
+        setEvent(MOCK_EVENT_DATA);
+        setIsLoading(false);
+        setIsVisible(true);
+      });
     }, 100);
   }, [eventId]);
 
@@ -299,10 +269,12 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         setLastName("");
         setGuestPhone("");
 
-        // Refresh event data to get updated guest count
-        const updatedEvent = await getEventDetails(eventId);
-        if (updatedEvent.success && updatedEvent.data) {
-          setEvent(updatedEvent.data);
+        // Update guest count locally (no API refresh)
+        if (event) {
+          setEvent({
+            ...event,
+            current_guestlist_count: event.current_guestlist_count + 1,
+          });
         }
 
         // Reset success message after 5 seconds
