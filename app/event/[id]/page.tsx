@@ -15,8 +15,8 @@ export async function generateStaticParams() {
   ];
 }
 
-// Allow dynamic params that aren't in generateStaticParams
-export const dynamicParams = true;
+// dynamicParams removed for static export compatibility
+// With output: "export", only routes in generateStaticParams will be generated
 
 interface EventPageProps {
   params: Promise<{ id: string }>;

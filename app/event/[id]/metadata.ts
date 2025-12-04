@@ -8,3 +8,5 @@ export const eventMetadata: Metadata = {
   description: "Join PuraVida's exclusive events and get on the guest list",
 };
 
+
+
