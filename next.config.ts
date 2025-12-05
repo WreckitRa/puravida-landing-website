@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export", // Static export for production hosting
+  // Only use static export in production builds
+  // This allows dynamic routes to work in dev mode
+  ...(process.env.NODE_ENV === "production" && { output: "export" }),
   images: {
     unoptimized: true,
   },

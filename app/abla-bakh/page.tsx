@@ -350,7 +350,7 @@ export default function AblaBakhPage() {
 
       {/* Main Content */}
       <main
-        className={`relative z-10 w-full max-w-7xl mx-auto lg:px-8 pt-8 lg:pt-4 pb-24 lg:pb-4 transition-all duration-700 lg:min-h-[calc(100vh-80px)] lg:flex lg:flex-col lg:justify-center ${
+        className={`relative z-10 w-full max-w-7xl mx-auto lg:px-8 pt-8 lg:pt-16 pb-24 lg:pb-16 transition-all duration-700 ${
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >

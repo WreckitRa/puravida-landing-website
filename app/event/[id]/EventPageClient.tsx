@@ -6,7 +6,8 @@ import Link from "next/link";
 import { trackPageView, trackEvent, trackButtonClick } from "@/lib/analytics";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
-import { registerToGuestlist, type EventDetails } from "@/lib/api";
+import { registerToGuestlist, getEventDetails, type EventDetails } from "@/lib/api";
+import { redirectToAppStore } from "@/lib/app-linking";
 
 // Local mock event data - temporarily using this instead of API
 const MOCK_EVENT_DATA: EventDetails = {
@@ -54,6 +55,8 @@ interface EventPageClientProps {
 }
 
 export default function EventPageClient({ eventId }: EventPageClientProps) {
+  // Get the actual event ID from URL (in case we're on the fallback page)
+  const [actualEventId, setActualEventId] = useState(eventId);
   const [isVisible, setIsVisible] = useState(false);
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,6 +68,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const [activationCode, setActivationCode] = useState<string | null>(null);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const firstNameInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -135,19 +140,53 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
   };
 
   useEffect(() => {
-    // Track page view
-    trackPageView(`/event/${eventId}`);
+    // Get the actual event ID from the URL path
+    // This handles the case where we're on the fallback page or any dynamic route
+    const pathParts = window.location.pathname.split("/").filter(Boolean);
+    const eventIndex = pathParts.indexOf("event");
+    const urlEventId = eventIndex >= 0 && pathParts[eventIndex + 1] 
+      ? pathParts[eventIndex + 1] 
+      : null;
+    
+    // Use the URL event ID if available and not "fallback", otherwise use the prop
+    const finalEventId = urlEventId && urlEventId !== "fallback" && urlEventId !== "fallback.html"
+      ? urlEventId 
+      : (eventId !== "fallback" ? eventId : null);
+    
+    if (!finalEventId) {
+      setError("Invalid event ID");
+      setIsLoading(false);
+      return;
+    }
+    
+    setActualEventId(finalEventId);
 
-    // Use local mock data only - no API fetching
-    setIsLoading(true);
-    // Simulate slight delay for smooth transition
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        setEvent(MOCK_EVENT_DATA);
+    // Track page view
+    trackPageView(`/event/${finalEventId}`);
+
+    // Fetch event data from API
+    const fetchEventData = async () => {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const result = await getEventDetails(finalEventId);
+
+        if (result.success && result.data) {
+          setEvent(result.data);
+          setIsVisible(true);
+        } else {
+          setError(result.message || "Event not found");
+        }
+      } catch (err) {
+        console.error("Error fetching event details:", err);
+        setError("Failed to load event. Please try again.");
+      } finally {
         setIsLoading(false);
-        setIsVisible(true);
-      });
-    }, 100);
+      }
+    };
+
+    fetchEventData();
   }, [eventId]);
 
   // Intersection Observer to detect when form is visible
@@ -181,7 +220,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!firstName.trim()) {
       setError("Please enter your first name");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: actualEventId,
         error_type: "missing_first_name",
       });
       return;
@@ -190,7 +229,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!lastName.trim()) {
       setError("Please enter your last name");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: actualEventId,
         error_type: "missing_last_name",
       });
       return;
@@ -199,7 +238,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!guestPhone.trim()) {
       setError("Please enter your phone number");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: actualEventId,
         error_type: "missing_phone",
       });
       return;
@@ -210,7 +249,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (!phoneRegex.test(guestPhone.replace(/\s/g, ""))) {
       setError("Please enter a valid phone number");
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: actualEventId,
         error_type: "invalid_phone",
       });
       return;
@@ -230,10 +269,10 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     setIsSubmitting(true);
 
     // Track submission attempt
-    trackEvent("event_guestlist_submit", {
-      event_id: eventId,
-      event_name: event?.event_name,
-    });
+      trackEvent("event_guestlist_submit", {
+        event_id: actualEventId,
+        event_name: event?.event_name,
+      });
 
     // Extract ALL UTM parameters from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -245,7 +284,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     // Register to guestlist via API
     try {
-      const result = await registerToGuestlist(eventId, {
+      const result = await registerToGuestlist(actualEventId, {
         country_code: countryCode,
         phone: guestPhone.trim(),
         first_name: firstName.trim(),
@@ -262,34 +301,47 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       if (result.success && result.data) {
         // Track success
         trackEvent("event_guestlist_success", {
-          event_id: eventId,
+          event_id: actualEventId,
           event_name: event?.event_name,
           already_registered: result.data.already_registered,
         });
 
-        setIsSubmitted(true);
-        setIsSubmitting(false);
+        // Check if already registered
+        if (result.data.already_registered) {
+          setAlreadyRegistered(true);
+          setIsSubmitted(true);
+          setIsSubmitting(false);
+        } else {
+          // New registration - get activation code from response
+          setAlreadyRegistered(false);
+          setIsSubmitted(true);
+          setIsSubmitting(false);
+
+          // Activation code should be included in the registration response
+          if (result.data.activation_code) {
+            setActivationCode(result.data.activation_code);
+          } else {
+            // Fallback: log warning if activation code is missing
+            console.warn("Activation code not found in registration response");
+          }
+        }
+        
         setFirstName("");
         setLastName("");
         setGuestPhone("");
 
         // Update guest count locally (no API refresh)
-        if (event) {
+        if (event && !result.data.already_registered) {
           setEvent({
             ...event,
             current_guestlist_count: event.current_guestlist_count + 1,
           });
         }
-
-        // Reset success message after 5 seconds
-        setTimeout(() => {
-          setIsSubmitted(false);
-        }, 5000);
       } else {
         setError(result.message || "Failed to register to guestlist");
         setIsSubmitting(false);
         trackEvent("event_guestlist_error", {
-          event_id: eventId,
+          event_id: actualEventId,
           error_type: "api_error",
           error_message: result.message,
         });
@@ -299,7 +351,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       setError("Network error. Please try again.");
       setIsSubmitting(false);
       trackEvent("event_guestlist_error", {
-        event_id: eventId,
+        event_id: actualEventId,
         error_type: "network_error",
       });
     }
@@ -314,6 +366,19 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       }, 300);
     }
     trackButtonClick("Join Guest List Sticky", 0, "event-page");
+  };
+
+  const handleDownloadApp = () => {
+    trackButtonClick("Download App", 0, "success-card");
+    redirectToAppStore();
+  };
+
+  const handleCopyActivationCode = () => {
+    if (activationCode) {
+      navigator.clipboard.writeText(activationCode);
+      trackButtonClick("Copy Activation Code", 0, "success-card");
+      // You could show a toast notification here
+    }
   };
 
   if (isLoading) {
@@ -343,13 +408,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     <div className="min-h-screen bg-black relative overflow-x-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-purple-500/10 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
+        <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
         <div
-          className="absolute top-40 right-10 w-96 h-96 bg-pink-500/10 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+          className="absolute top-40 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
           style={{ animationDelay: "1s" }}
         ></div>
         <div
-          className="absolute -bottom-8 left-1/2 w-96 h-96 bg-blue-500/10 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+          className="absolute -bottom-8 left-1/2 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
           style={{ animationDelay: "2s" }}
         ></div>
       </div>
@@ -359,7 +424,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
       {/* Main Content */}
       <main
-        className={`relative z-10 w-full max-w-7xl mx-auto lg:px-8 pt-8 lg:pt-4 pb-24 lg:pb-4 transition-all duration-700 lg:min-h-[calc(100vh-80px)] lg:flex lg:flex-col lg:justify-center ${
+        className={`relative z-10 w-full max-w-7xl mx-auto lg:px-8 pt-8 lg:pt-16 pb-24 lg:pb-16 transition-all duration-700 ${
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
@@ -368,7 +433,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
           {/* Left Column - Event Details */}
           <div className="space-y-4 lg:space-y-3 animate-slide-in-right w-full">
             {/* Event Image/Poster - Full width on mobile */}
-            <div className="relative w-full aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-0 lg:border-2 border-white/10 rounded-none lg:rounded-2xl">
+            <div className="relative w-full aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-white/10 border-0 lg:border-2 border-white/10 rounded-none lg:rounded-2xl">
               {eventBannerUrl && isVideo ? (
                 <video
                   src={eventBannerUrl}
@@ -497,36 +562,93 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
             style={{ animationDelay: "0.2s" }}
           >
             {/* Guest List Card */}
-            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border-2 border-white/20 rounded-3xl p-4 lg:p-6 relative overflow-visible">
-              {/* Animated background gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 animate-pulse-slow rounded-3xl overflow-hidden"></div>
+            <div
+              className={`rounded-3xl p-4 lg:p-6 relative overflow-visible transition-all duration-500 ${
+                isSubmitted
+                  ? "bg-white border-2 border-black/10"
+                  : "bg-white/10 backdrop-blur-sm border-2 border-white/20"
+              }`}
+            >
+              {/* Animated background gradient - only show when not submitted */}
+              {!isSubmitted && (
+                <div className="absolute inset-0 bg-white/5 animate-pulse-slow rounded-3xl overflow-hidden"></div>
+              )}
 
               <div className="relative z-10">
-                <div className="text-center mb-3 lg:mb-4">
-                  <h3 className="text-xl lg:text-2xl font-bold text-white mb-1">
-                    Join the Guest List
-                  </h3>
-                  <p className="text-white/80 text-xs">
-                    Free Entry (Guest List)
-                  </p>
-                  {!event.is_guestlist_open && (
-                    <p className="text-red-400 text-xs mt-1">
-                      Registration is closed
-                    </p>
-                  )}
-                  {event.is_guestlist_full && (
-                    <p className="text-red-400 text-xs mt-1">
-                      Guestlist is full
-                    </p>
-                  )}
-                </div>
+                {/* Success Card - New Registration */}
+                {isSubmitted && !alreadyRegistered && (
+                  <div className="space-y-4 animate-bounce-in">
+                    {/* Success Icon */}
+                    <div className="flex justify-center">
+                      <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-10 h-10 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
 
-                {/* Success Message */}
-                {isSubmitted && (
-                  <div className="mb-2.5 bg-green-500/20 border border-green-500/50 rounded-xl p-2.5 animate-bounce-in">
-                    <div className="flex items-center gap-2">
+                    {/* Success Message */}
+                    <div className="text-center space-y-2">
+                      <h3 className="text-2xl lg:text-3xl font-bold text-black">
+                        You&apos;re on the list! 🎉
+                      </h3>
+                      <p className="text-black/70 text-sm">
+                        Download the app to manage your guestlist and access
+                        exclusive events
+                      </p>
+                    </div>
+
+                    {/* Activation Code - Only show if available */}
+                    {activationCode && (
+                      <div className="bg-black/5 rounded-xl p-4 border-2 border-black/10">
+                        <p className="text-black/60 text-xs font-medium mb-2 text-center">
+                          Your Activation Code
+                        </p>
+                        <div className="flex items-center justify-center gap-3">
+                          <code className="text-2xl lg:text-3xl font-bold text-black tracking-wider">
+                            {activationCode}
+                          </code>
+                          <button
+                            onClick={handleCopyActivationCode}
+                            className="p-2 hover:bg-black/10 rounded-lg transition-colors"
+                            title="Copy code"
+                          >
+                            <svg
+                              className="w-5 h-5 text-black/60"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Download App Button */}
+                    <button
+                      onClick={handleDownloadApp}
+                      className="w-full bg-black text-white font-bold py-4 px-6 rounded-xl hover:bg-black/90 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 text-base lg:text-lg"
+                    >
+                      <span>Download PuraVida App</span>
                       <svg
-                        className="w-4 h-4 text-green-400 flex-shrink-0"
+                        className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -535,33 +657,102 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M5 13l4 4L19 7"
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
-                      <div>
-                        <p className="text-green-400 font-bold text-xs">
-                          You&apos;re on the list! 🎉
-                        </p>
-                        <p className="text-green-300/80 text-xs">
-                          We&apos;ll send you confirmation details soon.
-                        </p>
+                    </button>
+                  </div>
+                )}
+
+                {/* Success Card - Already Registered */}
+                {isSubmitted && alreadyRegistered && (
+                  <div className="space-y-4 animate-bounce-in">
+                    {/* Info Icon */}
+                    <div className="flex justify-center">
+                      <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-10 h-10 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
                       </div>
                     </div>
+
+                    {/* Message */}
+                    <div className="text-center space-y-2">
+                      <h3 className="text-2xl lg:text-3xl font-bold text-black">
+                        You&apos;re already on the list!
+                      </h3>
+                      <p className="text-black/70 text-sm">
+                        Download the app to manage your guestlist and access
+                        all your events
+                      </p>
+                    </div>
+
+                    {/* Download App Button */}
+                    <button
+                      onClick={handleDownloadApp}
+                      className="w-full bg-black text-white font-bold py-4 px-6 rounded-xl hover:bg-black/90 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 text-base lg:text-lg"
+                    >
+                      <span>Download PuraVida App</span>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </button>
                   </div>
                 )}
 
-                {/* Error Message */}
-                {error && (
-                  <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
-                    <p className="text-red-400 font-medium text-xs">{error}</p>
-                  </div>
-                )}
+                {/* Guest List Form - Show when not submitted */}
+                {!isSubmitted && (
+                  <>
+                    <div className="text-center mb-3 lg:mb-4">
+                      <h3 className="text-xl lg:text-2xl font-bold text-white mb-1">
+                        Join the Guest List
+                      </h3>
+                      <p className="text-white/80 text-xs">
+                        Free Entry (Guest List)
+                      </p>
+                      {!event.is_guestlist_open && (
+                        <p className="text-red-400 text-xs mt-1">
+                          Registration is closed
+                        </p>
+                      )}
+                      {event.is_guestlist_full && (
+                        <p className="text-red-400 text-xs mt-1">
+                          Guestlist is full
+                        </p>
+                      )}
+                    </div>
 
-                {/* Guest List Form */}
-                <form
-                  onSubmit={handleSubmit}
-                  className="space-y-2.5 lg:space-y-3"
-                >
+                    {/* Error Message */}
+                    {error && (
+                      <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
+                        <p className="text-red-400 font-medium text-xs">{error}</p>
+                      </div>
+                    )}
+
+                    <form
+                      onSubmit={handleSubmit}
+                      className="space-y-2.5 lg:space-y-3"
+                    >
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label
@@ -577,7 +768,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         placeholder="First name"
-                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                         disabled={
                           isSubmitting ||
                           isSubmitted ||
@@ -599,7 +790,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         placeholder="Last name"
-                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                         disabled={
                           isSubmitting ||
                           isSubmitted ||
@@ -615,7 +806,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                       htmlFor="guestPhone"
                       className="block text-white font-medium mb-1.5 text-xs"
                     >
-                      d3pl0$ Phone Number
+                      Phone Number
                     </label>
                     <div className="flex gap-2 items-stretch">
                       <div className="flex-shrink-0">
@@ -634,7 +825,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                           setGuestPhone(value);
                         }}
                         placeholder="501234567"
-                        className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                         disabled={
                           isSubmitting ||
                           isSubmitted ||
@@ -653,7 +844,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                       !event.is_guestlist_open ||
                       event.is_guestlist_full
                     }
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
+                    className="w-full bg-white text-black font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
                     onClick={() =>
                       trackButtonClick("Join Guest List", 0, "event-page")
                     }
@@ -661,7 +852,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                     {isSubmitting ? (
                       <>
                         <svg
-                          className="animate-spin h-5 w-5 text-white"
+                          className="animate-spin h-5 w-5 text-black"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -717,8 +908,10 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         </svg>
                       </>
                     )}
-                  </button>
-                </form>
+                    </button>
+                    </form>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -735,7 +928,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       >
         <button
           onClick={scrollToForm}
-          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 px-6 rounded-xl shadow-2xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center justify-center gap-2 text-lg"
+          className="w-full bg-white text-black font-bold py-4 px-6 rounded-xl shadow-2xl hover:bg-gray-100 transition-all duration-300 flex items-center justify-center gap-2 text-lg"
         >
           <span>Join Guest List</span>
           <svg
