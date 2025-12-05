@@ -6,7 +6,11 @@ import Link from "next/link";
 import { trackPageView, trackEvent, trackButtonClick } from "@/lib/analytics";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
-import { registerToGuestlist, getEventDetails, type EventDetails } from "@/lib/api";
+import {
+  registerToGuestlist,
+  getEventDetails,
+  type EventDetails,
+} from "@/lib/api";
 import { redirectToAppStore } from "@/lib/app-linking";
 
 // Local mock event data - temporarily using this instead of API
@@ -66,7 +70,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
   const [countryCode, setCountryCode] = useState("971"); // Default to UAE
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [error, setError] = useState("");
+  const [loadingError, setLoadingError] = useState(""); // For page loading errors (full screen)
+  const [formError, setFormError] = useState(""); // For form validation errors (in form box only)
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [activationCode, setActivationCode] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
@@ -144,21 +149,25 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     // This handles the case where we're on the fallback page or any dynamic route
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const eventIndex = pathParts.indexOf("event");
-    const urlEventId = eventIndex >= 0 && pathParts[eventIndex + 1] 
-      ? pathParts[eventIndex + 1] 
-      : null;
-    
+    const urlEventId =
+      eventIndex >= 0 && pathParts[eventIndex + 1]
+        ? pathParts[eventIndex + 1]
+        : null;
+
     // Use the URL event ID if available and not "fallback", otherwise use the prop
-    const finalEventId = urlEventId && urlEventId !== "fallback" && urlEventId !== "fallback.html"
-      ? urlEventId 
-      : (eventId !== "fallback" ? eventId : null);
-    
+    const finalEventId =
+      urlEventId && urlEventId !== "fallback" && urlEventId !== "fallback.html"
+        ? urlEventId
+        : eventId !== "fallback"
+        ? eventId
+        : null;
+
     if (!finalEventId) {
-      setError("Invalid event ID");
+      setLoadingError("Invalid event ID");
       setIsLoading(false);
       return;
     }
-    
+
     setActualEventId(finalEventId);
 
     // Track page view
@@ -166,21 +175,21 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     // Fetch event data from API
     const fetchEventData = async () => {
-    setIsLoading(true);
-      setError("");
+      setIsLoading(true);
+      setLoadingError("");
 
       try {
         const result = await getEventDetails(finalEventId);
 
         if (result.success && result.data) {
           setEvent(result.data);
-        setIsVisible(true);
+          setIsVisible(true);
         } else {
-          setError(result.message || "Event not found");
+          setLoadingError(result.message || "Event not found");
         }
       } catch (err) {
         console.error("Error fetching event details:", err);
-        setError("Failed to load event. Please try again.");
+        setLoadingError("Failed to load event. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -196,12 +205,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
+          // Hide sticky button when form is approaching viewport
           setIsFormVisible(entry.isIntersecting);
         });
       },
       {
-        threshold: 0.3, // Trigger when 30% of form is visible
-        rootMargin: "-100px 0px", // Add some margin to trigger earlier
+        threshold: 0, // Trigger as soon as any part is visible
+        rootMargin: "0px 0px -200px 0px", // Trigger when form is 200px from bottom of viewport
       }
     );
 
@@ -210,15 +220,15 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [event]); // Add event as dependency to ensure observer sets up after content loads
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setFormError("");
 
     // Validation
     if (!firstName.trim()) {
-      setError("Please enter your first name");
+      setFormError("Please enter your first name");
       trackEvent("event_guestlist_error", {
         event_id: actualEventId,
         error_type: "missing_first_name",
@@ -227,7 +237,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     }
 
     if (!lastName.trim()) {
-      setError("Please enter your last name");
+      setFormError("Please enter your last name");
       trackEvent("event_guestlist_error", {
         event_id: actualEventId,
         error_type: "missing_last_name",
@@ -236,7 +246,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     }
 
     if (!guestPhone.trim()) {
-      setError("Please enter your phone number");
+      setFormError("Please enter your phone number");
       trackEvent("event_guestlist_error", {
         event_id: actualEventId,
         error_type: "missing_phone",
@@ -247,7 +257,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     // Basic phone validation
     const phoneRegex = /^[0-9]{7,15}$/;
     if (!phoneRegex.test(guestPhone.replace(/\s/g, ""))) {
-      setError("Please enter a valid phone number");
+      setFormError("Please enter a valid phone number");
       trackEvent("event_guestlist_error", {
         event_id: actualEventId,
         error_type: "invalid_phone",
@@ -257,12 +267,12 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     // Check if guestlist is open and not full
     if (!event?.is_guestlist_open) {
-      setError("Guestlist registration is closed for this event.");
+      setFormError("Guestlist registration is closed for this event.");
       return;
     }
 
     if (event?.is_guestlist_full) {
-      setError("Guestlist is full for this event.");
+      setFormError("Guestlist is full for this event.");
       return;
     }
 
@@ -270,7 +280,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     // Track submission attempt
     trackEvent("event_guestlist_submit", {
-        event_id: actualEventId,
+      event_id: actualEventId,
       event_name: event?.event_name,
     });
 
@@ -309,8 +319,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         // Check if already registered
         if (result.data.already_registered) {
           setAlreadyRegistered(true);
-        setIsSubmitted(true);
-        setIsSubmitting(false);
+          setIsSubmitted(true);
+          setIsSubmitting(false);
         } else {
           // New registration - get activation code from response
           setAlreadyRegistered(false);
@@ -325,7 +335,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
             console.warn("Activation code not found in registration response");
           }
         }
-        
+
         setFirstName("");
         setLastName("");
         setGuestPhone("");
@@ -338,7 +348,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
           });
         }
       } else {
-        setError(result.message || "Failed to register to guestlist");
+        setFormError(result.message || "Failed to register to guestlist");
         setIsSubmitting(false);
         trackEvent("event_guestlist_error", {
           event_id: actualEventId,
@@ -348,7 +358,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       }
     } catch (err) {
       console.error("Error registering to guestlist:", err);
-      setError("Network error. Please try again.");
+      setFormError("Network error. Please try again.");
       setIsSubmitting(false);
       trackEvent("event_guestlist_error", {
         event_id: actualEventId,
@@ -358,6 +368,9 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
   };
 
   const scrollToForm = () => {
+    // Immediately hide the sticky button when clicked
+    setIsFormVisible(true);
+
     if (formRef.current) {
       formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
       // Focus the first name input after a short delay to ensure scroll completes
@@ -389,12 +402,12 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     );
   }
 
-  if (!event || error) {
+  if (!event || loadingError) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="text-white text-xl mb-4">
-            {error || "Event not found"}
+            {loadingError || "Event not found"}
           </div>
           <Link href="/" className="text-white/60 hover:text-white underline">
             Go back home
@@ -601,7 +614,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                     <div className="text-center space-y-2">
                       <h3 className="text-2xl lg:text-3xl font-bold text-black">
                         You&apos;re on the list! 🎉
-                  </h3>
+                      </h3>
                       <p className="text-black/70 text-sm">
                         Download the app to manage your guestlist and access
                         exclusive events
@@ -661,7 +674,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         />
                       </svg>
                     </button>
-                </div>
+                  </div>
                 )}
 
                 {/* Success Card - Already Registered */}
@@ -672,17 +685,17 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                       <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
                         <svg
                           className="w-10 h-10 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
+                          />
+                        </svg>
                       </div>
                     </div>
 
@@ -692,8 +705,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         You&apos;re already on the list!
                       </h3>
                       <p className="text-black/70 text-sm">
-                        Download the app to manage your guestlist and access
-                        all your events
+                        Download the app to manage your guestlist and access all
+                        your events
                       </p>
                     </div>
 
@@ -742,174 +755,176 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                       )}
                     </div>
 
-                {/* Error Message */}
-                {error && (
-                  <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
-                    <p className="text-red-400 font-medium text-xs">{error}</p>
-                  </div>
-                )}
-
-                <form
-                  onSubmit={handleSubmit}
-                  className="space-y-2.5 lg:space-y-3"
-                >
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label
-                        htmlFor="firstName"
-                        className="block text-white font-medium mb-1.5 text-xs"
-                      >
-                        First Name
-                      </label>
-                      <input
-                        ref={firstNameInputRef}
-                        type="text"
-                        id="firstName"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="First name"
-                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
-                        disabled={
-                          isSubmitting ||
-                          isSubmitted ||
-                          !event.is_guestlist_open ||
-                          event.is_guestlist_full
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="lastName"
-                        className="block text-white font-medium mb-1.5 text-xs"
-                      >
-                        Last Name
-                      </label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Last name"
-                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
-                        disabled={
-                          isSubmitting ||
-                          isSubmitted ||
-                          !event.is_guestlist_open ||
-                          event.is_guestlist_full
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="guestPhone"
-                      className="block text-white font-medium mb-1.5 text-xs"
-                    >
-                      Phone Number
-                    </label>
-                    <div className="flex gap-2 items-stretch">
-                      <div className="flex-shrink-0">
-                        <PhoneCodeSelector
-                          value={countryCode}
-                          onChange={setCountryCode}
-                          className="h-full"
-                        />
+                    {/* Error Message */}
+                    {formError && (
+                      <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
+                        <p className="text-red-400 font-medium text-xs">
+                          {formError}
+                        </p>
                       </div>
-                      <input
-                        type="tel"
-                        id="guestPhone"
-                        value={guestPhone}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, "");
-                          setGuestPhone(value);
-                        }}
-                        placeholder="501234567"
-                        className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
+                    )}
+
+                    <form
+                      onSubmit={handleSubmit}
+                      className="space-y-2.5 lg:space-y-3"
+                    >
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label
+                            htmlFor="firstName"
+                            className="block text-white font-medium mb-1.5 text-xs"
+                          >
+                            First Name
+                          </label>
+                          <input
+                            ref={firstNameInputRef}
+                            type="text"
+                            id="firstName"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            placeholder="First name"
+                            className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
+                            disabled={
+                              isSubmitting ||
+                              isSubmitted ||
+                              !event.is_guestlist_open ||
+                              event.is_guestlist_full
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="lastName"
+                            className="block text-white font-medium mb-1.5 text-xs"
+                          >
+                            Last Name
+                          </label>
+                          <input
+                            type="text"
+                            id="lastName"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            placeholder="Last name"
+                            className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
+                            disabled={
+                              isSubmitting ||
+                              isSubmitted ||
+                              !event.is_guestlist_open ||
+                              event.is_guestlist_full
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="guestPhone"
+                          className="block text-white font-medium mb-1.5 text-xs"
+                        >
+                          Phone Number
+                        </label>
+                        <div className="flex gap-2 items-stretch">
+                          <div className="flex-shrink-0">
+                            <PhoneCodeSelector
+                              value={countryCode}
+                              onChange={setCountryCode}
+                              className="h-full"
+                            />
+                          </div>
+                          <input
+                            type="tel"
+                            id="guestPhone"
+                            value={guestPhone}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, "");
+                              setGuestPhone(value);
+                            }}
+                            placeholder="501234567"
+                            className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
+                            disabled={
+                              isSubmitting ||
+                              isSubmitted ||
+                              !event.is_guestlist_open ||
+                              event.is_guestlist_full
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
                         disabled={
                           isSubmitting ||
                           isSubmitted ||
                           !event.is_guestlist_open ||
                           event.is_guestlist_full
                         }
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={
-                      isSubmitting ||
-                      isSubmitted ||
-                      !event.is_guestlist_open ||
-                      event.is_guestlist_full
-                    }
-                    className="w-full bg-white text-black font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
-                    onClick={() =>
-                      trackButtonClick("Join Guest List", 0, "event-page")
-                    }
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg
-                          className="animate-spin h-5 w-5 text-black"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        <span>Adding you...</span>
-                      </>
-                    ) : isSubmitted ? (
-                      <>
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span>You&apos;re on the list!</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Join Guest List</span>
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13 7l5 5m0 0l-5 5m5-5H6"
-                          />
-                        </svg>
-                      </>
-                    )}
-                  </button>
-                </form>
+                        className="w-full bg-white text-black font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
+                        onClick={() =>
+                          trackButtonClick("Join Guest List", 0, "event-page")
+                        }
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <svg
+                              className="animate-spin h-5 w-5 text-black"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            <span>Adding you...</span>
+                          </>
+                        ) : isSubmitted ? (
+                          <>
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            <span>You&apos;re on the list!</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Join Guest List</span>
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 7l5 5m0 0l-5 5m5-5H6"
+                              />
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    </form>
                   </>
                 )}
               </div>
