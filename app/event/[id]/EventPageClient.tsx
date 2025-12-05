@@ -78,6 +78,17 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
   const firstNameInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
+  // Tracking state
+  const [pageLoadTime] = useState(Date.now());
+  const [formStartTime, setFormStartTime] = useState<number | null>(null);
+  const [hasTrackedScrollDepth, setHasTrackedScrollDepth] = useState({
+    "25": false,
+    "50": false,
+    "75": false,
+    "100": false,
+  });
+  const [hasInteractedWithForm, setHasInteractedWithForm] = useState(false);
+
   // Get the event banner image/video URL
   // Priority: images[0].name > event.file
   const eventBannerUrl =
@@ -175,18 +186,66 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       setIsLoading(true);
       setLoadingError("");
 
+      const loadStartTime = Date.now();
+
       try {
         const result = await getEventDetails(finalEventId);
+
+        const loadTime = Date.now() - loadStartTime;
 
         if (result.success && result.data) {
           setEvent(result.data);
           setIsVisible(true);
+
+          // Calculate capacity percentage
+          const capacityPercentage = result.data.guest_max_capacity
+            ? Math.round(
+                (result.data.current_guestlist_count /
+                  result.data.guest_max_capacity) *
+                  100
+              )
+            : 0;
+
+          // Track successful event load with comprehensive metadata
+          trackEvent("event_page_loaded", {
+            event_id: finalEventId,
+            event_name: result.data.event_name,
+            venue_name: result.data.venue?.name,
+            venue_id: result.data.venue?.id,
+            artist_name: result.data.main_artist_name,
+            event_date: result.data.date_time,
+            is_guestlist_open: result.data.is_guestlist_open,
+            is_guestlist_full: result.data.is_guestlist_full,
+            guestlist_capacity: result.data.guest_max_capacity,
+            guestlist_current_count: result.data.current_guestlist_count,
+            capacity_percentage: capacityPercentage,
+            has_video_banner: result.data.images?.[0]?.name?.includes(".mp4"),
+            load_time_ms: loadTime,
+          });
         } else {
-          setLoadingError(result.message || "Event not found");
+          const errorMessage = result.message || "Event not found";
+          setLoadingError(errorMessage);
+
+          // Track event load error
+          trackEvent("event_page_error", {
+            event_id: finalEventId,
+            error_type: "event_not_found",
+            error_message: errorMessage,
+            load_time_ms: Date.now() - loadStartTime,
+          });
         }
       } catch (err) {
         console.error("Error fetching event details:", err);
-        setLoadingError("Failed to load event. Please try again.");
+        const errorMessage = "Failed to load event. Please try again.";
+        setLoadingError(errorMessage);
+
+        // Track event load network error
+        trackEvent("event_page_error", {
+          event_id: finalEventId,
+          error_type: "network_error",
+          error_message: err instanceof Error ? err.message : "Unknown error",
+          load_time_ms: Date.now() - loadStartTime,
+        });
       } finally {
         setIsLoading(false);
       }
@@ -197,18 +256,32 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
   // Intersection Observer to detect when form is visible
   useEffect(() => {
-    if (!formRef.current) return;
+    if (!formRef.current || !event) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
+          const wasVisible = isFormVisible;
+          const nowVisible = entry.isIntersecting;
+
           // Hide sticky button when form is approaching viewport
-          setIsFormVisible(entry.isIntersecting);
+          setIsFormVisible(nowVisible);
+
+          // Track when form enters viewport for the first time
+          if (nowVisible && !wasVisible) {
+            trackEvent("event_form_viewed", {
+              event_id: actualEventId,
+              event_name: event.event_name,
+              time_to_view_seconds: Math.round(
+                (Date.now() - pageLoadTime) / 1000
+              ),
+            });
+          }
         });
       },
       {
-        threshold: 0, // Trigger as soon as any part is visible
-        rootMargin: "0px 0px -200px 0px", // Trigger when form is 200px from bottom of viewport
+        threshold: 0,
+        rootMargin: "0px 0px -200px 0px",
       }
     );
 
@@ -217,36 +290,115 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     return () => {
       observer.disconnect();
     };
-  }, [event]); // Add event as dependency to ensure observer sets up after content loads
+  }, [event, actualEventId, pageLoadTime, isFormVisible]);
+
+  // Scroll depth tracking
+  useEffect(() => {
+    if (!event) return;
+
+    const handleScroll = () => {
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY;
+      const scrollPercentage = Math.round(
+        ((scrollTop + windowHeight) / documentHeight) * 100
+      );
+
+      // Track scroll depth milestones
+      if (scrollPercentage >= 25 && !hasTrackedScrollDepth["25"]) {
+        trackEvent("event_scroll_depth", {
+          event_id: actualEventId,
+          depth: 25,
+        });
+        setHasTrackedScrollDepth((prev) => ({ ...prev, "25": true }));
+      }
+      if (scrollPercentage >= 50 && !hasTrackedScrollDepth["50"]) {
+        trackEvent("event_scroll_depth", {
+          event_id: actualEventId,
+          depth: 50,
+        });
+        setHasTrackedScrollDepth((prev) => ({ ...prev, "50": true }));
+      }
+      if (scrollPercentage >= 75 && !hasTrackedScrollDepth["75"]) {
+        trackEvent("event_scroll_depth", {
+          event_id: actualEventId,
+          depth: 75,
+        });
+        setHasTrackedScrollDepth((prev) => ({ ...prev, "75": true }));
+      }
+      if (scrollPercentage >= 100 && !hasTrackedScrollDepth["100"]) {
+        trackEvent("event_scroll_depth", {
+          event_id: actualEventId,
+          depth: 100,
+        });
+        setHasTrackedScrollDepth((prev) => ({ ...prev, "100": true }));
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [event, actualEventId, hasTrackedScrollDepth]);
+
+  // Time on page tracking - track at exit
+  useEffect(() => {
+    if (!event) return;
+
+    const handleBeforeUnload = () => {
+      const timeOnPage = Math.round((Date.now() - pageLoadTime) / 1000);
+      trackEvent("event_time_on_page", {
+        event_id: actualEventId,
+        time_seconds: timeOnPage,
+        form_submitted: isSubmitted,
+        form_started: hasInteractedWithForm,
+      });
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [event, actualEventId, pageLoadTime, isSubmitted, hasInteractedWithForm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
+    const submitStartTime = Date.now();
+    const timeToSubmit = formStartTime
+      ? Math.round((submitStartTime - formStartTime) / 1000)
+      : null;
+
     // Validation
     if (!firstName.trim()) {
       setFormError("Please enter your first name");
-      trackEvent("event_guestlist_error", {
+      trackEvent("event_validation_error", {
         event_id: actualEventId,
+        event_name: event?.event_name,
+        field: "first_name",
         error_type: "missing_first_name",
+        time_to_error_seconds: timeToSubmit,
       });
       return;
     }
 
     if (!lastName.trim()) {
       setFormError("Please enter your last name");
-      trackEvent("event_guestlist_error", {
+      trackEvent("event_validation_error", {
         event_id: actualEventId,
+        event_name: event?.event_name,
+        field: "last_name",
         error_type: "missing_last_name",
+        time_to_error_seconds: timeToSubmit,
       });
       return;
     }
 
     if (!guestPhone.trim()) {
       setFormError("Please enter your phone number");
-      trackEvent("event_guestlist_error", {
+      trackEvent("event_validation_error", {
         event_id: actualEventId,
+        event_name: event?.event_name,
+        field: "phone",
         error_type: "missing_phone",
+        time_to_error_seconds: timeToSubmit,
       });
       return;
     }
@@ -255,9 +407,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     const phoneRegex = /^[0-9]{7,15}$/;
     if (!phoneRegex.test(guestPhone.replace(/\s/g, ""))) {
       setFormError("Please enter a valid phone number");
-      trackEvent("event_guestlist_error", {
+      trackEvent("event_validation_error", {
         event_id: actualEventId,
+        event_name: event?.event_name,
+        field: "phone",
         error_type: "invalid_phone",
+        phone_length: guestPhone.length,
+        time_to_error_seconds: timeToSubmit,
       });
       return;
     }
@@ -265,20 +421,33 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     // Check if guestlist is open and not full
     if (!event?.is_guestlist_open) {
       setFormError("Guestlist registration is closed for this event.");
+      trackEvent("event_guestlist_closed_attempt", {
+        event_id: actualEventId,
+        event_name: event?.event_name,
+      });
       return;
     }
 
     if (event?.is_guestlist_full) {
       setFormError("Guestlist is full for this event.");
+      trackEvent("event_guestlist_full_attempt", {
+        event_id: actualEventId,
+        event_name: event?.event_name,
+        capacity: event.guest_max_capacity,
+        current_count: event.current_guestlist_count,
+      });
       return;
     }
 
     setIsSubmitting(true);
 
-    // Track submission attempt
-    trackEvent("event_guestlist_submit", {
+    // Track submission attempt with timing
+    trackEvent("event_guestlist_submit_attempt", {
       event_id: actualEventId,
       event_name: event?.event_name,
+      venue_name: event?.venue?.name,
+      time_to_submit_seconds: timeToSubmit,
+      country_code: countryCode,
     });
 
     // Extract ALL UTM parameters from URL
@@ -305,16 +474,26 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         utm_content: utmContent || undefined,
       });
 
+      const totalTime = Date.now() - submitStartTime;
+
       if (result.success && result.data) {
-        // Track success
+        // Check if already registered
+        const wasAlreadyRegistered = result.data.already_registered;
+
+        // Track success with comprehensive details
         trackEvent("event_guestlist_success", {
           event_id: actualEventId,
           event_name: event?.event_name,
-          already_registered: result.data.already_registered,
+          venue_name: event?.venue?.name,
+          artist_name: event?.main_artist_name,
+          already_registered: wasAlreadyRegistered,
+          time_to_complete_seconds: timeToSubmit,
+          api_response_time_ms: totalTime,
+          has_activation_code: !!result.data.activation_code,
+          country_code: countryCode,
         });
 
-        // Check if already registered
-        if (result.data.already_registered) {
+        if (wasAlreadyRegistered) {
           setAlreadyRegistered(true);
           setIsSubmitted(true);
           setIsSubmitting(false);
@@ -330,6 +509,9 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
           } else {
             // Fallback: log warning if activation code is missing
             console.warn("Activation code not found in registration response");
+            trackEvent("event_activation_code_missing", {
+              event_id: actualEventId,
+            });
           }
         }
 
@@ -338,28 +520,35 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         setGuestPhone("");
 
         // Update guest count locally (no API refresh)
-        if (event && !result.data.already_registered) {
+        if (event && !wasAlreadyRegistered) {
           setEvent({
             ...event,
             current_guestlist_count: event.current_guestlist_count + 1,
           });
         }
       } else {
-        setFormError(result.message || "Failed to register to guestlist");
+        const errorMessage =
+          result.message || "Failed to register to guestlist";
+        setFormError(errorMessage);
         setIsSubmitting(false);
-        trackEvent("event_guestlist_error", {
+        trackEvent("event_guestlist_api_error", {
           event_id: actualEventId,
-          error_type: "api_error",
-          error_message: result.message,
+          event_name: event?.event_name,
+          error_message: errorMessage,
+          api_response_time_ms: totalTime,
+          country_code: countryCode,
         });
       }
     } catch (err) {
       console.error("Error registering to guestlist:", err);
-      setFormError("Network error. Please try again.");
+      const errorMessage = "Network error. Please try again.";
+      setFormError(errorMessage);
       setIsSubmitting(false);
-      trackEvent("event_guestlist_error", {
+      trackEvent("event_guestlist_network_error", {
         event_id: actualEventId,
-        error_type: "network_error",
+        event_name: event?.event_name,
+        error_message: err instanceof Error ? err.message : "Unknown error",
+        country_code: countryCode,
       });
     }
   };
@@ -376,10 +565,19 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       }, 300);
     }
     trackButtonClick("Join Guest List Sticky", 0, "event-page");
+    trackEvent("event_scroll_to_form", {
+      event_id: actualEventId,
+      event_name: event?.event_name,
+    });
   };
 
   const handleDownloadApp = () => {
     trackButtonClick("Download App", 0, "success-card");
+    trackEvent("event_download_app_click", {
+      event_id: actualEventId,
+      event_name: event?.event_name,
+      from_state: alreadyRegistered ? "already_registered" : "new_registration",
+    });
     redirectToAppStore();
   };
 
@@ -387,9 +585,58 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     if (activationCode) {
       navigator.clipboard.writeText(activationCode);
       trackButtonClick("Copy Activation Code", 0, "success-card");
-      // You could show a toast notification here
+      trackEvent("event_activation_code_copied", {
+        event_id: actualEventId,
+        event_name: event?.event_name,
+      });
     }
   };
+
+  // Track form field interactions
+  const handleFieldFocus = (fieldName: string) => {
+    if (!hasInteractedWithForm) {
+      setHasInteractedWithForm(true);
+      setFormStartTime(Date.now());
+      trackEvent("event_form_started", {
+        event_id: actualEventId,
+        event_name: event?.event_name,
+        first_field: fieldName,
+        time_to_start_seconds: Math.round((Date.now() - pageLoadTime) / 1000),
+      });
+    }
+
+    trackEvent("event_field_focus", {
+      event_id: actualEventId,
+      field_name: fieldName,
+    });
+  };
+
+  const handleFieldBlur = (fieldName: string, hasValue: boolean) => {
+    trackEvent("event_field_blur", {
+      event_id: actualEventId,
+      field_name: fieldName,
+      has_value: hasValue,
+    });
+  };
+
+  const handleCountryCodeChange = (newCode: string) => {
+    setCountryCode(newCode);
+    trackEvent("event_country_code_changed", {
+      event_id: actualEventId,
+      from_code: countryCode,
+      to_code: newCode,
+    });
+  };
+
+  // Track error page display
+  useEffect(() => {
+    if (!isLoading && (!event || loadingError)) {
+      trackEvent("event_error_page_displayed", {
+        event_id: actualEventId,
+        error_message: loadingError || "Event not found",
+      });
+    }
+  }, [isLoading, event, loadingError, actualEventId]);
 
   if (isLoading) {
     return (
@@ -406,7 +653,15 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
           <div className="text-white text-xl mb-4">
             {loadingError || "Event not found"}
           </div>
-          <Link href="/" className="text-white/60 hover:text-white underline">
+          <Link
+            href="/"
+            className="text-white/60 hover:text-white underline"
+            onClick={() => {
+              trackEvent("event_error_go_home_click", {
+                event_id: actualEventId,
+              });
+            }}
+          >
             Go back home
           </Link>
         </div>
@@ -452,6 +707,18 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                   muted
                   playsInline
                   className="w-full h-full object-cover"
+                  onPlay={() => {
+                    trackEvent("event_video_played", {
+                      event_id: actualEventId,
+                      event_name: event.event_name,
+                    });
+                  }}
+                  onError={() => {
+                    trackEvent("event_video_error", {
+                      event_id: actualEventId,
+                      video_url: eventBannerUrl,
+                    });
+                  }}
                 />
               ) : eventBannerUrl ? (
                 <Image
@@ -459,6 +726,12 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                   alt={event.event_name}
                   fill
                   className="object-cover"
+                  onError={() => {
+                    trackEvent("event_image_error", {
+                      event_id: actualEventId,
+                      image_url: eventBannerUrl,
+                    });
+                  }}
                 />
               ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
@@ -779,6 +1052,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                             id="firstName"
                             value={firstName}
                             onChange={(e) => setFirstName(e.target.value)}
+                            onFocus={() => handleFieldFocus("first_name")}
+                            onBlur={() =>
+                              handleFieldBlur(
+                                "first_name",
+                                firstName.trim().length > 0
+                              )
+                            }
                             placeholder="First name"
                             className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                             disabled={
@@ -801,6 +1081,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                             id="lastName"
                             value={lastName}
                             onChange={(e) => setLastName(e.target.value)}
+                            onFocus={() => handleFieldFocus("last_name")}
+                            onBlur={() =>
+                              handleFieldBlur(
+                                "last_name",
+                                lastName.trim().length > 0
+                              )
+                            }
                             placeholder="Last name"
                             className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                             disabled={
@@ -824,7 +1111,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                           <div className="flex-shrink-0">
                             <PhoneCodeSelector
                               value={countryCode}
-                              onChange={setCountryCode}
+                              onChange={handleCountryCodeChange}
                               className="h-full"
                             />
                           </div>
@@ -836,6 +1123,13 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                               const value = e.target.value.replace(/\D/g, "");
                               setGuestPhone(value);
                             }}
+                            onFocus={() => handleFieldFocus("phone")}
+                            onBlur={() =>
+                              handleFieldBlur(
+                                "phone",
+                                guestPhone.trim().length > 0
+                              )
+                            }
                             placeholder="501234567"
                             className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                             disabled={
@@ -857,9 +1151,16 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                           event.is_guestlist_full
                         }
                         className="w-full bg-white text-black font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
-                        onClick={() =>
-                          trackButtonClick("Join Guest List", 0, "event-page")
-                        }
+                        onClick={() => {
+                          trackButtonClick("Join Guest List", 0, "event-page");
+                          trackEvent("event_submit_button_click", {
+                            event_id: actualEventId,
+                            event_name: event?.event_name,
+                            has_first_name: firstName.trim().length > 0,
+                            has_last_name: lastName.trim().length > 0,
+                            has_phone: guestPhone.trim().length > 0,
+                          });
+                        }}
                       >
                         {isSubmitting ? (
                           <>
