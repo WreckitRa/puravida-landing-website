@@ -8,6 +8,10 @@ DirectorySlash Off
 # Redirect to /ihaveinvite for desktop (mobile redirects handled server-side if needed)
 RewriteRule ^app/invite/?$ /ihaveinvite [L,R=301]
 
+# 0.3. Explicitly handle /ihaveinvite to ensure it works
+# This prevents Apache from trying to access it as a directory
+RewriteRule ^ihaveinvite/?$ /ihaveinvite.html [L]
+
 # 0.5. Handle dynamic event routes - route all /event/* to the fallback event page
 # This allows any event ID to work even with static export
 # The client-side code will extract the actual event ID from the URL

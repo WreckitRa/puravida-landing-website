@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getInviteData, getApiData, encodeBase64 } from "@/lib/storage";
+import { isMobile, redirectToAppStore } from "@/lib/app-linking";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -35,7 +36,13 @@ export default function IHaveInvitePage() {
   const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
-    // Load data from localStorage with backward compatibility
+    // Redirect mobile users to app store immediately
+    if (isMobile()) {
+      redirectToAppStore();
+      return;
+    }
+
+    // Load data from localStorage with backward compatibility (desktop only)
     try {
       const apiData = getApiData();
       if (apiData?.data) {
