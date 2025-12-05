@@ -194,3 +194,4 @@ All events automatically include:
 - Timestamp
 
 Events are properly sent to GA4 with correct signature.
+

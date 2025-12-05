@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { trackButtonClick, trackPageView } from "@/lib/analytics";
+import { trackButtonClick } from "@/lib/analytics";
 import StructuredData from "@/components/StructuredData";
 import { decodeAndStoreInviteFromUrl, getWhoInvited } from "@/lib/storage";
 import { initAppLinking } from "@/lib/app-linking";
@@ -23,9 +23,6 @@ function LandingPageContent() {
   useEffect(() => {
     // Initialize app deep linking (for mobile app redirects)
     initAppLinking();
-
-    // Track page view
-    trackPageView("/");
 
     // Handle invite parameter from URL (base64 encoded format: invite=base64Name|base64Phone)
     const encodedInvite = searchParams.get("invite");

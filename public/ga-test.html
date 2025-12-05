@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GA Simple Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #1a1a1a;
+        color: #fff;
+      }
+      .status {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+      }
+      .success {
+        background: #0a5;
+      }
+      .error {
+        background: #a00;
+      }
+      button {
+        background: #0a5;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px 5px;
+      }
+      button:hover {
+        background: #0c7;
+      }
+      pre {
+        background: #000;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 GA Simple Test Page</h1>
+    <p>
+      This page tests Google Analytics with the measurement ID:
+      <strong>G-VR8NMPGBV5</strong>
+    </p>
+
+    <div id="status"></div>
+
+    <button onclick="sendTestEvent()">Send Test Event</button>
+    <button onclick="checkStatus()">Check Status</button>
+
+    <h2>DataLayer Contents:</h2>
+    <pre id="datalayer"></pre>
+
+    <!-- Google Analytics -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-VR8NMPGBV5"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-VR8NMPGBV5", {
+        send_page_view: true,
+      });
+
+      console.log("✅ GA initialized with ID: G-VR8NMPGBV5");
+
+      function showStatus(message, type) {
+        const div = document.getElementById("status");
+        div.className = `status ${type}`;
+        div.innerHTML = message;
+      }
+
+      function sendTestEvent() {
+        if (typeof gtag === "function") {
+          gtag("event", "test_event", {
+            event_category: "Test",
+            event_label: "Simple Test",
+            value: 1,
+            timestamp: new Date().toISOString(),
+          });
+          showStatus(
+            "✅ Test event sent! Check Google Analytics Real-Time view.",
+            "success"
+          );
+          updateDataLayer();
+        } else {
+          showStatus("❌ gtag function not available", "error");
+        }
+      }
+
+      function checkStatus() {
+        if (typeof gtag === "function" && window.dataLayer) {
+          showStatus(
+            `✅ Google Analytics is working! DataLayer has ${window.dataLayer.length} items.`,
+            "success"
+          );
+          updateDataLayer();
+        } else {
+          showStatus("❌ Google Analytics not loaded properly", "error");
+        }
+      }
+
+      function updateDataLayer() {
+        document.getElementById("datalayer").textContent = JSON.stringify(
+          window.dataLayer,
+          null,
+          2
+        );
+      }
+
+      // Initial check after a delay
+      setTimeout(() => {
+        checkStatus();
+      }, 2000);
+    </script>
+  </body>
+</html>

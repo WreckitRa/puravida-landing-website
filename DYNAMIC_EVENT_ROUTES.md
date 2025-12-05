@@ -170,3 +170,4 @@ The `deploy.sh` script:
 - Check Apache `mod_rewrite` is enabled
 - Verify rewrite rule comes before "Serve file if exists"
 
+

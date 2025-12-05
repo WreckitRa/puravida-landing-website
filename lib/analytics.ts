@@ -6,95 +6,27 @@ declare global {
   interface Window {
     gtag?: {
       // Config call: gtag("config", GA_ID, {...})
-      (command: "config", targetId: string, config?: Record<string, any>): void;
+      (
+        command: "config",
+        targetId: string,
+        config?: Record<string, unknown>
+      ): void;
       // Event call: gtag("event", "event_name", {...})
       (
         command: "event",
         eventName: string,
-        eventParams?: Record<string, any>
+        eventParams?: Record<string, unknown>
       ): void;
       // JS call: gtag("js", Date)
       (command: "js", date: Date): void;
       // Set call: gtag("set", {...})
-      (command: "set", config: Record<string, any>): void;
+      (command: "set", config: Record<string, unknown>): void;
       // Generic fallback for other commands
-      (command: string, ...args: any[]): void;
+      (command: string, ...args: unknown[]): void;
     };
-    dataLayer?: any[];
+    dataLayer?: unknown[];
   }
 }
-
-// Initialize Google Analytics
-export const initGA = (measurementId: string) => {
-  if (typeof window === "undefined" || !measurementId) {
-    console.error("initGA: window is undefined or measurementId is missing");
-    return;
-  }
-
-  // Prevent duplicate initialization - check if script already exists
-  const existingScript = document.querySelector(
-    `script[src*="googletagmanager.com/gtag/js"]`
-  );
-  if (existingScript || (window.gtag && window.dataLayer)) {
-    console.warn("Google Analytics already initialized, skipping...");
-    return;
-  }
-
-  // Step 1: Initialize dataLayer and gtag function BEFORE external script loads
-  // This is the critical inline initialization that GA requires
-  window.dataLayer = window.dataLayer || [];
-  function gtag(...args: any[]) {
-    window.dataLayer!.push(args);
-  }
-  window.gtag = gtag as any;
-
-  // Mark initialization time
-  gtag("js", new Date());
-
-  // Step 2: Inject the external GA script (the actual gtag.js library)
-  // ONLY ONE SCRIPT INJECTION - this is critical
-  const externalScript = document.createElement("script");
-  externalScript.async = true;
-  externalScript.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
-  externalScript.onerror = () => {
-    console.error(
-      "❌ Failed to load Google Analytics script. Check network connection and ad blockers."
-    );
-  };
-  externalScript.onload = () => {
-    console.log("✅ Google Analytics script loaded from googletagmanager.com");
-
-    // Configure GA ONCE after the external script has loaded
-    // This is the ONLY place we call config to avoid duplicate init
-    if (window.gtag) {
-      // Disable automatic page view - we'll send it manually to include attribution
-      window.gtag("config", measurementId, {
-        send_page_view: false,
-      });
-      console.log(
-        "✅ Google Analytics configured with Measurement ID:",
-        measurementId
-      );
-
-      // Send the initial page view event with attribution
-      const attribution = getAttribution();
-      window.gtag("event", "page_view", {
-        page_path: window.location.pathname,
-        page_title: document.title,
-        ...attribution,
-      });
-      console.log("✅ Initial page_view event sent");
-    } else {
-      console.error("❌ gtag function not available after script load");
-    }
-  };
-
-  // Append to head - this triggers the script load
-  document.head.appendChild(externalScript);
-
-  // DO NOT call gtag("config") here - wait for script to load
-  // The config will be called once in the onload callback above
-};
 
 // Track page views
 export const trackPageView = (path: string, title?: string) => {
@@ -115,7 +47,7 @@ export const trackPageView = (path: string, title?: string) => {
 // Track custom events
 export const trackEvent = (
   eventName: string,
-  eventParams?: Record<string, any>
+  eventParams?: Record<string, unknown>
 ) => {
   if (typeof window === "undefined" || !window.gtag) return;
 
@@ -183,7 +115,7 @@ export const trackFieldInteraction = (
 // Track form submission
 export const trackFormSubmission = (
   success: boolean,
-  formData: any,
+  formData: Record<string, unknown>,
   timeToComplete: number
 ) => {
   const attribution = getAttribution();
@@ -192,15 +124,20 @@ export const trackFormSubmission = (
     success,
     time_to_complete_seconds: timeToComplete,
     form_data: {
-      has_music_taste: formData.musicTaste?.length > 0,
+      has_music_taste:
+        Array.isArray(formData.musicTaste) && formData.musicTaste.length > 0,
       has_favorite_dj: !!formData.favoriteDJ,
-      has_favorite_places: formData.favoritePlacesDubai?.length > 0,
+      has_favorite_places:
+        Array.isArray(formData.favoritePlacesDubai) &&
+        formData.favoritePlacesDubai.length > 0,
       has_festivals: !!formData.festivalsBeenTo,
-      music_genres_count:
-        formData.musicTaste?.filter((g: string) => g !== "Other").length || 0,
-      places_count:
-        formData.favoritePlacesDubai?.filter((p: string) => p !== "Other")
-          .length || 0,
+      music_genres_count: Array.isArray(formData.musicTaste)
+        ? formData.musicTaste.filter((g: unknown) => g !== "Other").length
+        : 0,
+      places_count: Array.isArray(formData.favoritePlacesDubai)
+        ? formData.favoritePlacesDubai.filter((p: unknown) => p !== "Other")
+            .length
+        : 0,
     },
     // Attribution is automatically included via trackEvent
   });
@@ -234,7 +171,10 @@ export const trackSelection = (
 };
 
 // Track conversion (final submission)
-export const trackConversion = (formData: any, timeToComplete: number) => {
+export const trackConversion = (
+  formData: Record<string, unknown>,
+  timeToComplete: number
+) => {
   const attribution = getAttribution();
 
   trackEvent("conversion", {
@@ -251,7 +191,9 @@ export const trackConversion = (formData: any, timeToComplete: number) => {
 };
 
 // Calculate form completeness percentage
-const calculateFormCompleteness = (formData: any): number => {
+const calculateFormCompleteness = (
+  formData: Record<string, unknown>
+): number => {
   const fields = [
     "fullName",
     "gender",
@@ -274,7 +216,7 @@ const calculateFormCompleteness = (formData: any): number => {
     const value = formData[field];
     if (Array.isArray(value)) {
       if (value.length > 0) completed++;
-    } else if (value && value.trim() !== "") {
+    } else if (typeof value === "string" && value.trim() !== "") {
       completed++;
     }
   });

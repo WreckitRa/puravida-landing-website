@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { trackPageView, trackEvent, trackButtonClick } from "@/lib/analytics";
+import { trackEvent, trackButtonClick } from "@/lib/analytics";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
 import {
@@ -169,9 +169,6 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     }
 
     setActualEventId(finalEventId);
-
-    // Track page view
-    trackPageView(`/event/${finalEventId}`);
 
     // Fetch event data from API
     const fetchEventData = async () => {
