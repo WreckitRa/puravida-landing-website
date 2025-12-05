@@ -303,13 +303,13 @@ export default function AblaBakhPage() {
     <div className="min-h-screen bg-black relative overflow-x-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-purple-500/10 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
+        <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
         <div
-          className="absolute top-40 right-10 w-96 h-96 bg-pink-500/10 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+          className="absolute top-40 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
           style={{ animationDelay: "1s" }}
         ></div>
         <div
-          className="absolute -bottom-8 left-1/2 w-96 h-96 bg-blue-500/10 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
+          className="absolute -bottom-8 left-1/2 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
           style={{ animationDelay: "2s" }}
         ></div>
       </div>
@@ -327,7 +327,7 @@ export default function AblaBakhPage() {
           {/* Left Column - Event Details */}
           <div className="space-y-4 lg:space-y-3 animate-slide-in-right w-full">
             {/* Event Image/Poster - Full width on mobile */}
-            <div className="relative w-full aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-0 lg:border-2 border-white/10 rounded-none lg:rounded-2xl">
+            <div className="relative w-full aspect-[4/5] lg:aspect-[3/4] overflow-hidden bg-white/10 border-0 lg:border-2 border-white/10 rounded-none lg:rounded-2xl">
               {eventBannerUrl && isVideo ? (
                 <video
                   src={eventBannerUrl}
@@ -456,9 +456,9 @@ export default function AblaBakhPage() {
             style={{ animationDelay: "0.2s" }}
           >
             {/* Guest List Card */}
-            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border-2 border-white/20 rounded-3xl p-4 lg:p-6 relative overflow-visible">
+            <div className="bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-3xl p-4 lg:p-6 relative overflow-visible">
               {/* Animated background gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-blue-500/10 animate-pulse-slow rounded-3xl overflow-hidden"></div>
+              <div className="absolute inset-0 bg-white/5 animate-pulse-slow rounded-3xl overflow-hidden"></div>
 
               <div className="relative z-10">
                 <div className="text-center mb-3 lg:mb-4">
@@ -536,7 +536,7 @@ export default function AblaBakhPage() {
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         placeholder="First name"
-                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                         disabled={
                           isSubmitting ||
                           isSubmitted ||
@@ -558,7 +558,7 @@ export default function AblaBakhPage() {
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         placeholder="Last name"
-                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        className="w-full px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                         disabled={
                           isSubmitting ||
                           isSubmitted ||
@@ -593,7 +593,7 @@ export default function AblaBakhPage() {
                           setGuestPhone(value);
                         }}
                         placeholder="501234567"
-                        className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all duration-200 text-sm"
+                        className="flex-1 px-3 py-2.5 lg:py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white focus:ring-4 focus:ring-white/20 transition-all duration-200 text-sm"
                         disabled={
                           isSubmitting ||
                           isSubmitted ||
@@ -612,7 +612,7 @@ export default function AblaBakhPage() {
                       !event.is_guestlist_open ||
                       event.is_guestlist_full
                     }
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
+                    className="w-full bg-white text-black font-bold py-2.5 lg:py-3 px-6 rounded-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 text-sm lg:text-base"
                     onClick={() =>
                       trackButtonClick("Join Guest List", 0, "event-page")
                     }
@@ -694,7 +694,7 @@ export default function AblaBakhPage() {
       >
         <button
           onClick={scrollToForm}
-          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 px-6 rounded-xl shadow-2xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center justify-center gap-2 text-lg"
+          className="w-full bg-white text-black font-bold py-4 px-6 rounded-xl shadow-2xl hover:bg-gray-100 transition-all duration-300 flex items-center justify-center gap-2 text-lg"
         >
           <span>Join Guest List</span>
           <svg
