@@ -17,10 +17,9 @@ export async function generateStaticParams() {
   ];
 }
 
-// Allow dynamic params not in generateStaticParams
-// In dev mode: allows any event ID to work
-// In production with static export: Apache .htaccess routes unknown IDs to fallback page
-export const dynamicParams = true;
+// Note: dynamicParams cannot be used with static export
+// In production, Apache .htaccess routes unknown IDs to fallback page
+// The client-side code extracts the actual event ID from the URL
 
 // For static export, dynamic routes work via:
 // 1. Pre-generated pages for common IDs
