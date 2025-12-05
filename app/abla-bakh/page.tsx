@@ -7,6 +7,7 @@ import { trackPageView, trackEvent, trackButtonClick } from "@/lib/analytics";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
 import { registerToGuestlist, type EventDetails } from "@/lib/api";
+import { redirectToAppStore, isAndroid, isIOS } from "@/lib/app-linking";
 
 // Static event data - no API fetching
 const EVENT_DATA: EventDetails = {
@@ -62,6 +63,8 @@ export default function AblaBakhPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [isFormVisible, setIsFormVisible] = useState(false);
+  const [activationCode, setActivationCode] = useState<string | null>(null);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const firstNameInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -258,16 +261,31 @@ export default function AblaBakhPage() {
           already_registered: result.data.already_registered,
         });
 
-        setIsSubmitted(true);
-        setIsSubmitting(false);
+        // Check if already registered
+        if (result.data.already_registered) {
+          setAlreadyRegistered(true);
+          setIsSubmitted(true);
+          setIsSubmitting(false);
+        } else {
+          // New registration - get activation code from response
+          setAlreadyRegistered(false);
+          setIsSubmitted(true);
+          setIsSubmitting(false);
+
+          // Activation code should be included in the registration response
+          if (result.data.activation_code) {
+            setActivationCode(result.data.activation_code);
+          } else {
+            // Fallback: log warning if activation code is missing
+            console.warn("Activation code not found in registration response");
+            // Still show success, but without activation code
+            // User can still download the app
+          }
+        }
+        
         setFirstName("");
         setLastName("");
         setGuestPhone("");
-
-        // Reset success message after 5 seconds
-        setTimeout(() => {
-          setIsSubmitted(false);
-        }, 5000);
       } else {
         setError(result.message || "Failed to register to guestlist");
         setIsSubmitting(false);
@@ -297,6 +315,19 @@ export default function AblaBakhPage() {
       }, 300);
     }
     trackButtonClick("Join Guest List Sticky", 0, "event-page");
+  };
+
+  const handleDownloadApp = () => {
+    trackButtonClick("Download App", 0, "success-card");
+    redirectToAppStore();
+  };
+
+  const handleCopyActivationCode = () => {
+    if (activationCode) {
+      navigator.clipboard.writeText(activationCode);
+      trackButtonClick("Copy Activation Code", 0, "success-card");
+      // You could show a toast notification here
+    }
   };
 
   return (
@@ -456,36 +487,93 @@ export default function AblaBakhPage() {
             style={{ animationDelay: "0.2s" }}
           >
             {/* Guest List Card */}
-            <div className="bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-3xl p-4 lg:p-6 relative overflow-visible">
-              {/* Animated background gradient */}
-              <div className="absolute inset-0 bg-white/5 animate-pulse-slow rounded-3xl overflow-hidden"></div>
+            <div
+              className={`rounded-3xl p-4 lg:p-6 relative overflow-visible transition-all duration-500 ${
+                isSubmitted
+                  ? "bg-white border-2 border-black/10"
+                  : "bg-white/10 backdrop-blur-sm border-2 border-white/20"
+              }`}
+            >
+              {/* Animated background gradient - only show when not submitted */}
+              {!isSubmitted && (
+                <div className="absolute inset-0 bg-white/5 animate-pulse-slow rounded-3xl overflow-hidden"></div>
+              )}
 
               <div className="relative z-10">
-                <div className="text-center mb-3 lg:mb-4">
-                  <h3 className="text-xl lg:text-2xl font-bold text-white mb-1">
-                    Join the Guest List
-                  </h3>
-                  <p className="text-white/80 text-xs">
-                    Free Entry (Guest List)
-                  </p>
-                  {!event.is_guestlist_open && (
-                    <p className="text-red-400 text-xs mt-1">
-                      Registration is closed
-                    </p>
-                  )}
-                  {event.is_guestlist_full && (
-                    <p className="text-red-400 text-xs mt-1">
-                      Guestlist is full
-                    </p>
-                  )}
-                </div>
+                {/* Success Card - New Registration */}
+                {isSubmitted && !alreadyRegistered && (
+                  <div className="space-y-4 animate-bounce-in">
+                    {/* Success Icon */}
+                    <div className="flex justify-center">
+                      <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-10 h-10 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
 
-                {/* Success Message */}
-                {isSubmitted && (
-                  <div className="mb-2.5 bg-green-500/20 border border-green-500/50 rounded-xl p-2.5 animate-bounce-in">
-                    <div className="flex items-center gap-2">
+                    {/* Success Message */}
+                    <div className="text-center space-y-2">
+                      <h3 className="text-2xl lg:text-3xl font-bold text-black">
+                        You&apos;re on the list! 🎉
+                      </h3>
+                      <p className="text-black/70 text-sm">
+                        Download the app to manage your guestlist and access
+                        exclusive events
+                      </p>
+                    </div>
+
+                    {/* Activation Code - Only show if available */}
+                    {activationCode && (
+                      <div className="bg-black/5 rounded-xl p-4 border-2 border-black/10">
+                        <p className="text-black/60 text-xs font-medium mb-2 text-center">
+                          Your Activation Code
+                        </p>
+                        <div className="flex items-center justify-center gap-3">
+                          <code className="text-2xl lg:text-3xl font-bold text-black tracking-wider">
+                            {activationCode}
+                          </code>
+                          <button
+                            onClick={handleCopyActivationCode}
+                            className="p-2 hover:bg-black/10 rounded-lg transition-colors"
+                            title="Copy code"
+                          >
+                            <svg
+                              className="w-5 h-5 text-black/60"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Download App Button */}
+                    <button
+                      onClick={handleDownloadApp}
+                      className="w-full bg-black text-white font-bold py-4 px-6 rounded-xl hover:bg-black/90 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 text-base lg:text-lg"
+                    >
+                      <span>Download PuraVida App</span>
                       <svg
-                        className="w-4 h-4 text-green-400 flex-shrink-0"
+                        className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -494,33 +582,102 @@ export default function AblaBakhPage() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M5 13l4 4L19 7"
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
-                      <div>
-                        <p className="text-green-400 font-bold text-xs">
-                          You&apos;re on the list! 🎉
-                        </p>
-                        <p className="text-green-300/80 text-xs">
-                          We&apos;ll send you confirmation details soon.
-                        </p>
+                    </button>
+                  </div>
+                )}
+
+                {/* Success Card - Already Registered */}
+                {isSubmitted && alreadyRegistered && (
+                  <div className="space-y-4 animate-bounce-in">
+                    {/* Info Icon */}
+                    <div className="flex justify-center">
+                      <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+                        <svg
+                          className="w-10 h-10 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
                       </div>
                     </div>
+
+                    {/* Message */}
+                    <div className="text-center space-y-2">
+                      <h3 className="text-2xl lg:text-3xl font-bold text-black">
+                        You&apos;re already on the list!
+                      </h3>
+                      <p className="text-black/70 text-sm">
+                        Download the app to manage your guestlist and access
+                        all your events
+                      </p>
+                    </div>
+
+                    {/* Download App Button */}
+                    <button
+                      onClick={handleDownloadApp}
+                      className="w-full bg-black text-white font-bold py-4 px-6 rounded-xl hover:bg-black/90 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 text-base lg:text-lg"
+                    >
+                      <span>Download PuraVida App</span>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </button>
                   </div>
                 )}
 
-                {/* Error Message */}
-                {error && (
-                  <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
-                    <p className="text-red-400 font-medium text-xs">{error}</p>
-                  </div>
-                )}
+                {/* Guest List Form - Show when not submitted */}
+                {!isSubmitted && (
+                  <>
+                    <div className="text-center mb-3 lg:mb-4">
+                      <h3 className="text-xl lg:text-2xl font-bold text-white mb-1">
+                        Join the Guest List
+                      </h3>
+                      <p className="text-white/80 text-xs">
+                        Free Entry (Guest List)
+                      </p>
+                      {!event.is_guestlist_open && (
+                        <p className="text-red-400 text-xs mt-1">
+                          Registration is closed
+                        </p>
+                      )}
+                      {event.is_guestlist_full && (
+                        <p className="text-red-400 text-xs mt-1">
+                          Guestlist is full
+                        </p>
+                      )}
+                    </div>
 
-                {/* Guest List Form */}
-                <form
-                  onSubmit={handleSubmit}
-                  className="space-y-2.5 lg:space-y-3"
-                >
+                    {/* Error Message */}
+                    {error && (
+                      <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
+                        <p className="text-red-400 font-medium text-xs">{error}</p>
+                      </div>
+                    )}
+
+                    <form
+                      onSubmit={handleSubmit}
+                      className="space-y-2.5 lg:space-y-3"
+                    >
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label
@@ -620,7 +777,7 @@ export default function AblaBakhPage() {
                     {isSubmitting ? (
                       <>
                         <svg
-                          className="animate-spin h-5 w-5 text-white"
+                          className="animate-spin h-5 w-5 text-black"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -676,8 +833,10 @@ export default function AblaBakhPage() {
                         </svg>
                       </>
                     )}
-                  </button>
-                </form>
+                    </button>
+                    </form>
+                  </>
+                )}
               </div>
             </div>
           </div>

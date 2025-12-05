@@ -838,6 +838,8 @@ export interface GuestlistRegistrationResult {
   plus_one_count?: number;
   already_registered: boolean;
   registered_at: string;
+  activation_code?: string; // Activation code for the member
+  user_id?: string | number; // User/member ID to fetch activation code separately if needed
 }
 
 export interface RegisterToGuestlistResponse {
@@ -918,6 +920,87 @@ export async function getEventDetails(
         error instanceof Error
           ? error.message
           : "Network error. Please try again.",
+    };
+  }
+}
+
+/**
+ * Get activation code for a user/member
+ * @param userId - User ID or phone number to get activation code for
+ * @param phone - Phone number (alternative to userId)
+ * @param countryCode - Country code (required if using phone)
+ */
+export async function getActivationCode(
+  userId?: string | number,
+  phone?: string,
+  countryCode?: string
+): Promise<ApiResponse<{ activation_code: string }>> {
+  // Mock mode for development
+  if (isMockMode()) {
+    console.log("🔧 MOCK MODE: getActivationCode", { userId, phone, countryCode });
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          success: true,
+          data: {
+            activation_code: `PV${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+          },
+          message: "Activation code retrieved successfully.",
+        });
+      }, 500);
+    });
+  }
+
+  try {
+    // Build query params
+    const params = new URLSearchParams();
+    if (userId) {
+      params.append("user_id", userId.toString());
+    }
+    if (phone && countryCode) {
+      params.append("phone", phone);
+      params.append("country_code", countryCode);
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/members/activation-code?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const result: ApiResponse<{ activation_code: string }> = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.error || {
+          code: "UNKNOWN_ERROR",
+          message: result.message || "Failed to get activation code",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+      message: result.message,
+    };
+  } catch (error) {
+    console.error("API Error getting activation code:", error);
+    return {
+      success: false,
+      error: {
+        code: "NETWORK_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Network error. Please try again.",
+      },
     };
   }
 }
