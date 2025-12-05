@@ -86,28 +86,22 @@ rsync -avz --delete out/ ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}
 ##############################################
 # 5. CREATE FINAL .htaccess ON SERVER
 ##############################################
-echo -e "${YELLOW}Step 6: Writing .htaccess on server${NC}"
+echo -e "${YELLOW}Step 6: Uploading .htaccess to server${NC}"
 
-ssh ${SERVER_USER}@${SERVER_IP} "cat > ${SERVER_PATH}.htaccess << 'EOF'
-RewriteEngine On
-RewriteBase /
-
-# Serve the file if it exists
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^ - [L]
-
-# Clean URLs: /page → page.html
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteCond %{REQUEST_FILENAME}.html -f
-RewriteRule ^(.+?)/?$ \$1.html [L]
-
-# SPA fallback (only if no html file exists)
-RewriteCond %{REQUEST_FILENAME}.html !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
-EOF"
-
-echo -e "${GREEN}.htaccess created successfully.${NC}"
+# Use the .htaccess from out/ directory (which should have been copied from public/)
+if [ -f "out/.htaccess" ]; then
+    scp out/.htaccess ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}.htaccess
+    echo -e "${GREEN}.htaccess uploaded successfully.${NC}"
+else
+    echo -e "${YELLOW}Warning: out/.htaccess not found, using public/.htaccess${NC}"
+    if [ -f "public/.htaccess" ]; then
+        scp public/.htaccess ${SERVER_USER}@${SERVER_IP}:${SERVER_PATH}.htaccess
+        echo -e "${GREEN}.htaccess uploaded successfully.${NC}"
+    else
+        echo -e "${RED}Error: No .htaccess file found${NC}"
+        exit 1
+    fi
+fi
 
 ##############################################
 # 6. PERMISSIONS

@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  // Note: Files in public/ are automatically copied to out/ during build
+  // The post-build script (scripts/post-build.js) verifies fallback.html exists
 };
 
 export default nextConfig;

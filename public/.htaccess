@@ -11,6 +11,7 @@ RewriteRule ^app/invite/?$ /ihaveinvite [L,R=301]
 # 0.5. Handle dynamic event routes - route all /event/* to the fallback event page
 # This allows any event ID to work even with static export
 # The client-side code will extract the actual event ID from the URL
+# IMPORTANT: This must come BEFORE the "Serve file if exists" rule
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^event/([^/]+)/?$ /event/fallback.html [L]
