@@ -166,7 +166,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     // Fetch event data from API
     const fetchEventData = async () => {
-      setIsLoading(true);
+    setIsLoading(true);
       setError("");
 
       try {
@@ -174,7 +174,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
         if (result.success && result.data) {
           setEvent(result.data);
-          setIsVisible(true);
+        setIsVisible(true);
         } else {
           setError(result.message || "Event not found");
         }
@@ -269,10 +269,10 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     setIsSubmitting(true);
 
     // Track submission attempt
-      trackEvent("event_guestlist_submit", {
+    trackEvent("event_guestlist_submit", {
         event_id: actualEventId,
-        event_name: event?.event_name,
-      });
+      event_name: event?.event_name,
+    });
 
     // Extract ALL UTM parameters from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -309,8 +309,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         // Check if already registered
         if (result.data.already_registered) {
           setAlreadyRegistered(true);
-          setIsSubmitted(true);
-          setIsSubmitting(false);
+        setIsSubmitted(true);
+        setIsSubmitting(false);
         } else {
           // New registration - get activation code from response
           setAlreadyRegistered(false);
@@ -405,9 +405,9 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-black relative overflow-x-hidden">
+    <div className="bg-black">
       {/* Animated background elements */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
         <div
           className="absolute top-40 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
@@ -601,7 +601,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                     <div className="text-center space-y-2">
                       <h3 className="text-2xl lg:text-3xl font-bold text-black">
                         You&apos;re on the list! 🎉
-                      </h3>
+                  </h3>
                       <p className="text-black/70 text-sm">
                         Download the app to manage your guestlist and access
                         exclusive events
@@ -661,7 +661,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         />
                       </svg>
                     </button>
-                  </div>
+                </div>
                 )}
 
                 {/* Success Card - Already Registered */}
@@ -672,17 +672,17 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                       <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
                         <svg
                           className="w-10 h-10 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
+                        />
+                      </svg>
                       </div>
                     </div>
 
@@ -742,17 +742,17 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                       )}
                     </div>
 
-                    {/* Error Message */}
-                    {error && (
-                      <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
-                        <p className="text-red-400 font-medium text-xs">{error}</p>
-                      </div>
-                    )}
+                {/* Error Message */}
+                {error && (
+                  <div className="mb-2.5 bg-red-500/20 border border-red-500/50 rounded-xl p-2.5 animate-wiggle">
+                    <p className="text-red-400 font-medium text-xs">{error}</p>
+                  </div>
+                )}
 
-                    <form
-                      onSubmit={handleSubmit}
-                      className="space-y-2.5 lg:space-y-3"
-                    >
+                <form
+                  onSubmit={handleSubmit}
+                  className="space-y-2.5 lg:space-y-3"
+                >
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label
@@ -908,8 +908,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
                         </svg>
                       </>
                     )}
-                    </button>
-                    </form>
+                  </button>
+                </form>
                   </>
                 )}
               </div>

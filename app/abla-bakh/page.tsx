@@ -331,9 +331,9 @@ export default function AblaBakhPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black relative overflow-x-hidden">
+    <div className="bg-black">
       {/* Animated background elements */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-20 left-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"></div>
         <div
           className="absolute top-40 right-10 w-96 h-96 bg-white/5 rounded-full filter blur-3xl opacity-50 animate-pulse-slow"
