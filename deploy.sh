@@ -113,6 +113,11 @@ cd ${DEPLOY_PATH}
 echo -e "${YELLOW}Step 0: Configuring Git safe directory${NC}"
 git config --global --add safe.directory ${DEPLOY_PATH} || true
 
+# Fix Git directory permissions (if needed)
+echo -e "${YELLOW}Step 0.5: Fixing Git directory permissions${NC}"
+sudo chown -R ${USER}:${USER} ${DEPLOY_PATH}/.git || true
+chmod -R u+w ${DEPLOY_PATH}/.git || true
+
 # Pull latest code
 echo -e "${YELLOW}Step 1: Pulling latest code${NC}"
 git pull
