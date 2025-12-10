@@ -11,11 +11,26 @@
 declare global {
   interface Window {
     dataLayer?: unknown[];
-    gtag?: (
-      command: "config" | "event" | "js" | "set",
-      targetIdOrEventName: string | Date,
-      configOrParams?: Record<string, unknown> | Date
-    ) => void;
+    gtag?: {
+      // Config call: gtag("config", GA_ID, {...})
+      (
+        command: "config",
+        targetId: string,
+        config?: Record<string, unknown>
+      ): void;
+      // Event call: gtag("event", "event_name", {...})
+      (
+        command: "event",
+        eventName: string,
+        eventParams?: Record<string, unknown>
+      ): void;
+      // JS call: gtag("js", Date)
+      (command: "js", date: Date): void;
+      // Set call: gtag("set", {...})
+      (command: "set", config: Record<string, unknown>): void;
+      // Generic fallback for other commands
+      (command: string, ...args: unknown[]): void;
+    };
   }
 }
 
@@ -47,13 +62,10 @@ export function initGA(measurementId: string): boolean {
   window.dataLayer = window.dataLayer || [];
 
   // Create gtag function that queues events
-  function gtag(
-    command: "config" | "event" | "js" | "set",
-    targetIdOrEventName: string | Date,
-    configOrParams?: Record<string, unknown> | Date
-  ): void {
+  // This function matches the overloaded gtag signature
+  const gtag = ((command: string, ...args: unknown[]): void => {
     window.dataLayer!.push(arguments);
-  }
+  }) as NonNullable<Window["gtag"]>;
 
   // Attach gtag to window
   window.gtag = gtag;
