@@ -8,10 +8,6 @@ DirectorySlash Off
 # Redirect to /ihaveinvite for desktop (mobile redirects handled server-side if needed)
 RewriteRule ^app/invite/?$ /ihaveinvite [L,R=301]
 
-# 0.3. Explicitly handle /ihaveinvite to ensure it works
-# This prevents Apache from trying to access it as a directory
-RewriteRule ^ihaveinvite/?$ /ihaveinvite.html [L]
-
 # 0.5. Handle dynamic event routes - route all /event/* to the fallback event page
 # This allows any event ID to work even with static export
 # The client-side code will extract the actual event ID from the URL
@@ -25,17 +21,19 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_URI} !^/$
 RewriteRule ^(.+)/$ /$1 [L,R=301]
 
-# 2. Serve file if exists
+# 2. Serve file if exists (exact file match)
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
-# 3. Clean URL → .html (for non-trailing slash URLs)
+# 3. Clean URL → .html (for all routes - handles Next.js static export)
+# This rule handles direct URL access to routes like /onboarding, /ihaveinvite, etc.
+# It checks if the corresponding .html file exists and serves it
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.html -f
 RewriteRule ^(.+?)$ $1.html [L]
 
-# 4. SPA fallback
-RewriteCond %{REQUEST_FILENAME}.html !-f
+# 4. SPA fallback (for client-side routing)
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]

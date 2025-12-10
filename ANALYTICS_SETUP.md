@@ -183,3 +183,4 @@ If issues persist:
 2. Check browser console for errors
 3. Verify network requests to `googletagmanager.com` and `google-analytics.com`
 4. Test with the simple test page (`/ga-test.html`)
+

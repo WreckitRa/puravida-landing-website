@@ -7,12 +7,14 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 ## Key Features
 
 ### 1. **Performance Monitoring**
+
 - Page load time tracking
 - API response time tracking
 - Asset loading (video/image) success rates
 - Network error detection
 
 ### 2. **User Journey Tracking**
+
 - Page load → Form view → Form start → Submit → Success
 - Time at each stage
 - Drop-off points identification
@@ -20,6 +22,7 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 - Time on page measurement
 
 ### 3. **Form Interaction Tracking**
+
 - Field focus/blur events
 - First field touched
 - Time to start form
@@ -28,6 +31,7 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 - Country code selection changes
 
 ### 4. **Validation & Error Tracking**
+
 - Validation errors by field type
 - API errors with response times
 - Network errors
@@ -35,6 +39,7 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 - Missing activation codes
 
 ### 5. **Conversion Tracking**
+
 - New registrations
 - Already registered users
 - Activation code generation
@@ -42,6 +47,7 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 - Post-registration actions
 
 ### 6. **Engagement Metrics**
+
 - Video banner plays
 - Sticky CTA clicks
 - Scroll-to-form actions
@@ -50,6 +56,7 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 ## Events Tracked (27 Total)
 
 ### Core Events (9)
+
 1. `event_page_loaded` - Event details loaded successfully
 2. `event_page_error` - Failed to load event
 3. `event_form_viewed` - Form entered viewport
@@ -61,6 +68,7 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 9. `event_guestlist_network_error` - Network error occurred
 
 ### Engagement Events (6)
+
 10. `event_scroll_depth` - User scrolled to milestone
 11. `event_time_on_page` - User left page (exit tracking)
 12. `event_scroll_to_form` - Sticky button clicked
@@ -69,11 +77,13 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 15. `event_submit_button_click` - Submit clicked (pre-validation)
 
 ### Field Interaction Events (4)
+
 16. `event_field_focus` - Field focused
 17. `event_field_blur` - Field blurred
 18. `event_country_code_changed` - Country code changed
 
 ### Error & Edge Cases (8)
+
 19. `event_guestlist_closed_attempt` - Attempted closed guestlist
 20. `event_guestlist_full_attempt` - Attempted full guestlist
 21. `event_activation_code_missing` - API didn't provide code
@@ -86,6 +96,7 @@ Comprehensive analytics tracking has been added to the event page (`/event/[id]`
 ## Data Captured
 
 Every event automatically includes:
+
 - Event ID & Event Name
 - Venue information
 - Artist information
@@ -98,6 +109,7 @@ Every event automatically includes:
 ## Key Metrics You Can Now Track
 
 ### Conversion Funnel
+
 ```
 Page Views
     ↓ (% viewed form)
@@ -113,12 +125,14 @@ App Downloads
 ```
 
 ### Performance KPIs
+
 - **Page Load Time**: Average, P50, P90, P99
 - **API Response Time**: Average, P50, P90, P99
 - **Error Rate**: % of submissions that fail
 - **Success Rate**: % of submissions that succeed
 
 ### Behavioral Insights
+
 - **Time to Form**: How long before users start the form
 - **Time to Complete**: How long users take to fill form
 - **Field Completion**: Which fields are abandoned
@@ -126,6 +140,7 @@ App Downloads
 - **Country Distribution**: Where users are from
 
 ### Event Performance
+
 - **Capacity Tracking**: Current vs. max capacity over time
 - **Registration Velocity**: Registrations per hour/day
 - **Peak Times**: When most registrations happen
@@ -137,6 +152,7 @@ App Downloads
 
 1. **Go to Real-Time → Events**
 2. **Look for these event names** (they start with `event_`):
+
    - `event_page_loaded` - Page views
    - `event_guestlist_success` - Conversions
    - `event_validation_error` - Form errors
@@ -148,6 +164,7 @@ App Downloads
 ### Creating Custom Reports
 
 #### Conversion Funnel Report
+
 ```
 1. Count of event_page_loaded
 2. Count of event_form_viewed
@@ -159,6 +176,7 @@ Calculate drop-off at each stage
 ```
 
 #### Performance Report
+
 ```
 event_page_loaded:
   - Average load_time_ms
@@ -170,6 +188,7 @@ event_guestlist_success:
 ```
 
 #### Error Report
+
 ```
 Count by event type:
   - event_validation_error (by error_type)
@@ -180,6 +199,7 @@ Count by event type:
 ```
 
 #### Engagement Report
+
 ```
 event_scroll_depth:
   - % reaching 25%, 50%, 75%, 100%
@@ -198,6 +218,7 @@ event_field_focus:
 ### Issue: Low Conversion Rate
 
 **Check these events:**
+
 1. `event_validation_error` - Are users hitting validation errors?
 2. `event_field_blur` with `has_value: false` - Are they abandoning fields?
 3. `event_form_started` vs `event_guestlist_submit_attempt` - Drop-off in form?
@@ -206,6 +227,7 @@ event_field_focus:
 ### Issue: High Error Rate
 
 **Check these events:**
+
 1. `event_guestlist_api_error` - What's the `error_message`?
 2. `event_guestlist_network_error` - Network problems?
 3. `event_validation_error` - What `error_type` is most common?
@@ -214,6 +236,7 @@ event_field_focus:
 ### Issue: Users Not Finding Form
 
 **Check these events:**
+
 1. `event_form_viewed` - What % of page loads result in form views?
 2. `event_scroll_depth` - Are users scrolling?
 3. `event_scroll_to_form` - Is sticky button working?
@@ -222,6 +245,7 @@ event_field_focus:
 ### Issue: Event Not Loading
 
 **Check these events:**
+
 1. `event_page_error` - What's the `error_type`?
 2. `event_error_page_displayed` - How often is this shown?
 3. Check `load_time_ms` in successful loads - Is it slow?
@@ -231,6 +255,7 @@ event_field_focus:
 Set up alerts for:
 
 1. **High Error Rate** (>10%):
+
    ```
    Count of event_guestlist_api_error + event_guestlist_network_error
    / Count of event_guestlist_submit_attempt
@@ -238,16 +263,19 @@ Set up alerts for:
    ```
 
 2. **Slow Page Load** (>3s):
+
    ```
    Average load_time_ms in event_page_loaded > 3000
    ```
 
 3. **Capacity Nearly Full** (>90%):
+
    ```
    event_page_loaded.capacity_percentage > 90
    ```
 
 4. **Validation Issues** (>20%):
+
    ```
    Count of event_validation_error
    / Count of event_guestlist_submit_attempt
@@ -269,6 +297,7 @@ To test tracking locally:
 2. Open browser console (F12)
 3. Visit an event page
 4. You should see console logs:
+
    ```
    ✅ Google Analytics dataLayer initialized
    ✅ Google Analytics script loaded
@@ -277,6 +306,7 @@ To test tracking locally:
    ```
 
 5. Interact with the page:
+
    - Scroll down → `event_scroll_depth`
    - Focus a field → `event_form_started`, `event_field_focus`
    - Fill form → Multiple `event_field_blur` events
@@ -284,7 +314,7 @@ To test tracking locally:
 
 6. Check dataLayer:
    ```javascript
-   console.log(window.dataLayer)
+   console.log(window.dataLayer);
    ```
 
 ## Production Verification
@@ -315,18 +345,21 @@ After deployment:
 ## Key Insights You'll Gain
 
 ### Week 1
+
 - Conversion rate baseline
 - Most common errors
 - Average time to convert
 - Popular events
 
 ### Week 2-4
+
 - Conversion trends
 - A/B test opportunities
 - Capacity optimization needs
 - API performance patterns
 
 ### Month 2+
+
 - Seasonal patterns
 - User segment behaviors
 - Optimal pricing strategies
@@ -337,3 +370,4 @@ After deployment:
 **Implementation Date**: December 5, 2025  
 **Status**: ✅ Complete & Tested  
 **Build Status**: ✅ Passing
+
