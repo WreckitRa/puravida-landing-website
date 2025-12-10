@@ -113,9 +113,9 @@ cd ${DEPLOY_PATH}
 echo -e "${YELLOW}Step 1: Pulling latest code${NC}"
 git pull
 
-# Install dependencies
+# Install dependencies (including devDependencies needed for build)
 echo -e "${YELLOW}Step 2: Installing dependencies${NC}"
-npm install --production
+npm install
 
 # Build the application
 echo -e "${YELLOW}Step 3: Building Next.js application${NC}"

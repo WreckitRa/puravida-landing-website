@@ -13,7 +13,7 @@ declare global {
     dataLayer?: unknown[];
     gtag?: (
       command: "config" | "event" | "js" | "set",
-      targetIdOrEventName: string,
+      targetIdOrEventName: string | Date,
       configOrParams?: Record<string, unknown> | Date
     ) => void;
   }
@@ -49,7 +49,7 @@ export function initGA(measurementId: string): boolean {
   // Create gtag function that queues events
   function gtag(
     command: "config" | "event" | "js" | "set",
-    targetIdOrEventName: string,
+    targetIdOrEventName: string | Date,
     configOrParams?: Record<string, unknown> | Date
   ): void {
     window.dataLayer!.push(arguments);
