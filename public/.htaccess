@@ -1,8 +1,9 @@
 RewriteEngine On
 RewriteBase /
 
-# Prevent Apache from automatically adding trailing slashes
+# Prevent Apache from automatically adding trailing slashes and directory listing
 DirectorySlash Off
+Options -Indexes
 
 # 0. Handle /app/invite manually (before trailing slash redirect)
 # Redirect to /ihaveinvite for desktop (mobile redirects handled server-side if needed)
@@ -16,24 +17,38 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^event/([^/]+)/?$ /event/fallback.html [L]
 
-# 1. Redirect trailing slashes to non-trailing versions (except root)
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/$
-RewriteRule ^(.+)/$ /$1 [L,R=301]
-
-# 2. Serve file if exists (exact file match)
+# 1. Serve file if exists (exact file match)
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
-# 3. Clean URL → .html (for all routes - handles Next.js static export)
-# This rule handles direct URL access to routes like /onboarding, /ihaveinvite, etc.
+# 2. Handle trailing slashes by checking for .html file and serving it
+# This prevents "Forbidden" errors when accessing paths with trailing slashes
+# Example: /terms-conditions/ -> /terms-conditions.html
+RewriteCond %{REQUEST_URI} !^/$
+RewriteCond %{REQUEST_URI} ^(.+)/$
+RewriteCond %{DOCUMENT_ROOT}%1.html -f
+RewriteRule ^(.+)/$ $1.html [L]
+
+# 3. Strip trailing slashes if no .html file found (redirect to non-trailing version)
+RewriteCond %{REQUEST_URI} !^/$
+RewriteCond %{REQUEST_URI} ^(.+)/$
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)/$ /$1 [L,R=301]
+
+# 4. Clean URL → .html (for all routes - handles Next.js static export)
+# This rule handles direct URL access to routes like /onboarding, /terms-conditions, etc.
 # It checks if the corresponding .html file exists and serves it
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.html -f
 RewriteRule ^(.+?)$ $1.html [L]
 
-# 4. SPA fallback (for client-side routing)
+# 5. Prevent directory access - if it's a directory, redirect to index.html
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteCond %{REQUEST_URI} !^/$
+RewriteRule ^(.*)$ /index.html [L]
+
+# 5. SPA fallback (for client-side routing)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
