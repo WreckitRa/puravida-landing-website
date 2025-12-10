@@ -157,7 +157,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
   useEffect(() => {
     // Get the actual event ID from the URL path
-    // This handles the case where we're on the fallback page or any dynamic route
+    // With SSR, the eventId prop should match the URL, but we extract from URL as a fallback
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const eventIndex = pathParts.indexOf("event");
     const urlEventId =
@@ -165,13 +165,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         ? pathParts[eventIndex + 1]
         : null;
 
-    // Use the URL event ID if available and not "fallback", otherwise use the prop
-    const finalEventId =
-      urlEventId && urlEventId !== "fallback" && urlEventId !== "fallback.html"
-        ? urlEventId
-        : eventId !== "fallback"
-        ? eventId
-        : null;
+    // Use the URL event ID if available, otherwise use the prop
+    const finalEventId = urlEventId || eventId;
 
     if (!finalEventId) {
       setLoadingError("Invalid event ID");

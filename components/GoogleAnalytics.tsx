@@ -1,73 +1,57 @@
 "use client";
 
-import { useEffect } from "react";
-import Script from "next/script";
-import { trackPageView } from "@/lib/analytics";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { initGA, loadGAScript, configureGA } from "@/analytics/init";
+import { trackPageView } from "@/lib/analytics";
 import { getAttribution } from "@/lib/attribution";
 
-// Get the measurement ID at module level (build time)
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "";
-
+/**
+ * Google Analytics component for SSR-compatible Next.js
+ *
+ * Features:
+ * - SSR-safe initialization (only runs on client)
+ * - Prevents double injection across re-renders
+ * - Queues events even if gtag loads late
+ * - Loads GA4 ID from environment variable
+ */
 export default function GoogleAnalytics() {
   const pathname = usePathname();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
+  // Get measurement ID from environment variable
+  // Supports both NEXT_PUBLIC_GA_MEASUREMENT_ID and NEXT_PUBLIC_GA4_ID
+  const measurementId =
+    process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
+    process.env.NEXT_PUBLIC_GA4_ID ||
+    "";
+
+  // Initialize GA on mount (client-side only)
   useEffect(() => {
-    if (!GA_MEASUREMENT_ID) {
-      console.error(
-        "❌ Google Analytics: Measurement ID not found!\n" +
-          "Set NEXT_PUBLIC_GA_MEASUREMENT_ID in your environment variables."
+    if (!measurementId) {
+      console.warn(
+        "⚠️ Google Analytics: Measurement ID not found!\n" +
+          "Set NEXT_PUBLIC_GA_MEASUREMENT_ID or NEXT_PUBLIC_GA4_ID in your environment variables."
       );
       return;
     }
 
-    // Initialize dataLayer if not already present
-    if (typeof window !== "undefined") {
-      window.dataLayer = window.dataLayer || [];
-      function gtag(...args: unknown[]) {
-        window.dataLayer!.push(args);
-      }
-      window.gtag = gtag as typeof window.gtag;
+    // Initialize dataLayer and gtag function
+    if (initGA(measurementId)) {
+      setIsInitialized(true);
 
-      // Send timestamp
-      gtag("js", new Date());
-
-      console.log("✅ Google Analytics dataLayer initialized");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (GA_MEASUREMENT_ID && pathname) {
-      // Track page view on route change
-      trackPageView(pathname);
-      console.log("📊 Page view tracked:", pathname);
-    }
-  }, [pathname]);
-
-  // Don't render anything if no measurement ID
-  if (!GA_MEASUREMENT_ID) {
-    return null;
-  }
-
-  return (
-    <>
-      {/* Load the gtag.js script */}
-      <Script
-        strategy="afterInteractive"
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-        onLoad={() => {
-          console.log("✅ Google Analytics script loaded");
+      // Load the GA script
+      loadGAScript(measurementId)
+        .then(() => {
+          setScriptLoaded(true);
 
           // Configure GA after script loads
-          if (window.gtag) {
-            // Configure with send_page_view disabled (we'll track manually)
-            window.gtag("config", GA_MEASUREMENT_ID, {
-              send_page_view: false,
-            });
-            console.log("✅ Google Analytics configured:", GA_MEASUREMENT_ID);
+          configureGA(measurementId);
 
-            // Send initial page view with attribution
-            const attribution = getAttribution();
+          // Send initial page view with attribution
+          const attribution = getAttribution();
+          if (window.gtag) {
             window.gtag("event", "page_view", {
               page_path: window.location.pathname,
               page_title: document.title,
@@ -76,11 +60,22 @@ export default function GoogleAnalytics() {
             });
             console.log("✅ Initial page_view sent");
           }
-        }}
-        onError={() => {
-          console.error("❌ Failed to load Google Analytics script");
-        }}
-      />
-    </>
-  );
+        })
+        .catch((error) => {
+          console.error("❌ Failed to load Google Analytics script:", error);
+        });
+    }
+  }, [measurementId]);
+
+  // Track page views on route change
+  useEffect(() => {
+    if (measurementId && pathname && scriptLoaded) {
+      // Track page view on route change
+      trackPageView(pathname);
+      console.log("📊 Page view tracked:", pathname);
+    }
+  }, [pathname, measurementId, scriptLoaded]);
+
+  // Don't render anything (this is a client-only component)
+  return null;
 }

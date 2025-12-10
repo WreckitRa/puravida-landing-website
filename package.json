@@ -1,14 +1,13 @@
 {
   "name": "puravida-new-website",
-  "version": "0.1.53",
+  "version": "0.1.54",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/post-build.js",
-    "build:prod": "NODE_ENV=production next build && node scripts/post-build.js",
+    "build": "next build",
+    "build:prod": "NODE_ENV=production next build",
     "start": "next start",
-    "lint": "eslint",
-    "postbuild": "node scripts/post-build.js"
+    "lint": "eslint"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^5.4.0",

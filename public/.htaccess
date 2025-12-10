@@ -1,54 +1,18 @@
+# Apache configuration for Next.js SSR behind reverse proxy
+# 
+# Note: With SSR, Apache should proxy requests to the Next.js server.
+# This .htaccess is kept for minimal redirects only.
+# Most routing is handled by the Next.js server itself.
+
 RewriteEngine On
 RewriteBase /
 
-# Prevent Apache from automatically adding trailing slashes and directory listing
-DirectorySlash Off
+# Prevent directory listing
 Options -Indexes
 
-# 0. Handle /app/invite manually (before trailing slash redirect)
+# Handle /app/invite redirect
 # Redirect to /ihaveinvite for desktop (mobile redirects handled server-side if needed)
 RewriteRule ^app/invite/?$ /ihaveinvite [L,R=301]
 
-# 0.5. Handle dynamic event routes - route all /event/* to the fallback event page
-# This allows any event ID to work even with static export
-# The client-side code will extract the actual event ID from the URL
-# IMPORTANT: This must come BEFORE the "Serve file if exists" rule
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^event/([^/]+)/?$ /event/fallback.html [L]
-
-# 1. Serve file if exists (exact file match)
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^ - [L]
-
-# 2. Handle trailing slashes by checking for .html file and serving it
-# This prevents "Forbidden" errors when accessing paths with trailing slashes
-# Example: /terms-conditions/ -> /terms-conditions.html
-RewriteCond %{REQUEST_URI} !^/$
-RewriteCond %{REQUEST_URI} ^(.+)/$
-RewriteCond %{DOCUMENT_ROOT}%1.html -f
-RewriteRule ^(.+)/$ $1.html [L]
-
-# 3. Strip trailing slashes if no .html file found (redirect to non-trailing version)
-RewriteCond %{REQUEST_URI} !^/$
-RewriteCond %{REQUEST_URI} ^(.+)/$
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.+)/$ /$1 [L,R=301]
-
-# 4. Clean URL → .html (for all routes - handles Next.js static export)
-# This rule handles direct URL access to routes like /onboarding, /terms-conditions, etc.
-# It checks if the corresponding .html file exists and serves it
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.html -f
-RewriteRule ^(.+?)$ $1.html [L]
-
-# 5. Prevent directory access - if it's a directory, redirect to index.html
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteCond %{REQUEST_URI} !^/$
-RewriteRule ^(.*)$ /index.html [L]
-
-# 5. SPA fallback (for client-side routing)
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
+# Note: With SSR, dynamic routes like /event/[id] are handled by Next.js server-side.
+# No Apache rewrite rules needed for event routes.
