@@ -12,7 +12,11 @@ import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
 
 // Internal utilities
-import { trackEvent, trackButtonClick, trackAppInstallClick } from "@/lib/analytics";
+import {
+  trackEvent,
+  trackButtonClick,
+  trackAppInstallClick,
+} from "@/lib/analytics";
 import { getAttribution } from "@/lib/attribution";
 import {
   registerToGuestlist,
@@ -486,11 +490,14 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       event_name: event?.event_name,
       from_state: alreadyRegistered ? "already_registered" : "new_registration",
     });
-    
-    // Track app install click with platform detection
-    const platform = isIOS() ? "ios" : isAndroid() ? "android" : "web";
-    trackAppInstallClick(platform, "event-success-card");
-    
+
+    // Track app install click with platform detection (only for mobile)
+    if (isIOS()) {
+      trackAppInstallClick("ios", "event-success-card");
+    } else if (isAndroid()) {
+      trackAppInstallClick("android", "event-success-card");
+    }
+
     redirectToAppStore();
   };
 
