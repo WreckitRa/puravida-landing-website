@@ -67,16 +67,16 @@ Open [http://localhost:3000](http://localhost:3000) to see the onboarding flow.
 ## Onboarding Flow
 
 1. **Hero** - Landing page with CTA
-2. **Step 1** - Personal information (name, gender, age, etc.)
-3. **Step 2** - Music taste (multi-select)
-4. **Step 3** - Favorite DJ
-5. **Step 4** - Favorite places in Dubai (multi-select)
-6. **Step 5** - Festivals you've been to
-7. **Step 6** - Festivals you want to go to
-8. **Step 7** - Nightlife frequency
-9. **Step 8** - Ideal night out
-10. **Step 9** - Emotional lead-in
-11. **Step 10** - Confirmation
+1. **Step 1** - Hero/Landing
+1. **Step 2** - Personal information (name, gender, age, etc.)
+1. **Step 3** - Music taste (multi-select)
+1. **Step 4** - Favorite DJ
+1. **Step 5** - Favorite places in Dubai (multi-select)
+1. **Step 6** - Festivals you've been to
+1. **Step 7** - Festivals you want to go to
+1. **Step 8** - Nightlife frequency (Final question step)
+1. **Step 11** - Confirmation
+1. **Step 12** - Payment (optional)
 
 ## SEO
 
@@ -99,6 +99,7 @@ Comprehensive SEO optimization with best practices. See [SEO.md](./SEO.md) for c
 Comprehensive analytics tracking with full UTM parameter support. See [ANALYTICS.md](./ANALYTICS.md) and [UTM_TRACKING.md](./UTM_TRACKING.md) for full documentation.
 
 **Quick Links:**
+
 - **[MARKETING_CHANNELS.md](./MARKETING_CHANNELS.md)** - Guide for creating tracked invite links for paid ads, Instagram stories, etc.
 - **[ANALYTICS_VERIFICATION.md](./ANALYTICS_VERIFICATION.md)** - Step-by-step guide to verify analytics is working on your live site
 

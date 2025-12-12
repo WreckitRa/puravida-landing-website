@@ -23,6 +23,9 @@ import {
   trackSelection,
   trackTimeOnStep,
   trackValidationError,
+  trackAppInstallClick,
+  trackSubscriptionIntent,
+  trackSubscriptionComplete,
 } from "@/lib/analytics";
 import {
   initAttribution,
@@ -126,6 +129,12 @@ function OnboardingPageContent() {
     string | null
   >(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState<{
+    priceId: string;
+    name: string;
+    price: number;
+    currency: string;
+  } | null>(null);
   const [hasPaid, setHasPaid] = useState(false); // Track if user has paid for fast track
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -208,7 +217,6 @@ function OnboardingPageContent() {
           6: "Festivals Been To",
           7: "Festivals Want To Go",
           8: "Nightlife Frequency",
-          9: "Ideal Night Out",
         };
         const stepName = stepNames[currentStep] || `Step ${currentStep}`;
 
@@ -337,8 +345,6 @@ function OnboardingPageContent() {
       6: "Festivals Been To",
       7: "Festivals Want To Go",
       8: "Nightlife Frequency",
-      9: "Ideal Night Out",
-      10: "Emotional Lead-in",
       11: "Confirmation",
     };
 
@@ -1150,10 +1156,27 @@ function OnboardingPageContent() {
             clientSecret={paymentIntentClientSecret}
             customerName={formData.fullName || undefined}
             onSuccess={() => {
-              // Payment succeeded - mark as paid and redirect to success page
+              // Payment succeeded - track subscription completion
+              if (selectedPlanDetails) {
+                // Extract transaction ID from client secret (format: pi_xxxxx_secret_xxxxx)
+                const transactionId =
+                  paymentIntentClientSecret?.split("_secret_")[0] ||
+                  `pi_${Date.now()}`;
+
+                trackSubscriptionComplete(
+                  selectedPlanDetails.priceId,
+                  selectedPlanDetails.name,
+                  selectedPlanDetails.price,
+                  transactionId,
+                  selectedPlanDetails.currency
+                );
+              }
+
+              // Mark as paid and redirect to success page
               setHasPaid(true);
               setShowPaymentModal(false);
               setPaymentIntentClientSecret(null);
+              setSelectedPlanDetails(null);
               window.location.href = `${window.location.origin}/onboarding?payment=success`;
             }}
             onError={(error) => {
@@ -2628,9 +2651,14 @@ function OnboardingPageContent() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
-                      onClick={() =>
-                        trackButtonClick("Download iOS App", 11, "app-download")
-                      }
+                      onClick={() => {
+                        trackButtonClick(
+                          "Download iOS App",
+                          11,
+                          "app-download"
+                        );
+                        trackAppInstallClick("ios", "onboarding-step-11");
+                      }}
                     >
                       <svg
                         className="w-8 h-8"
@@ -2651,13 +2679,14 @@ function OnboardingPageContent() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group inline-flex items-center gap-3 bg-black text-white px-8 py-5 rounded-xl font-bold hover:bg-gray-900 transition-all duration-300 hover:scale-105 shadow-lg"
-                      onClick={() =>
+                      onClick={() => {
                         trackButtonClick(
                           "Download Android App",
                           10,
                           "app-download"
-                        )
-                      }
+                        );
+                        trackAppInstallClick("android", "onboarding-step-11");
+                      }}
                     >
                       <svg
                         className="w-8 h-8"
@@ -2971,6 +3000,35 @@ function OnboardingPageContent() {
                                 11,
                                 "payment"
                               );
+
+                              // Track subscription intent and store plan details
+                              const selectedPlan = paymentPlans.find(
+                                (p) => p.priceId === plan.priceId
+                              );
+                              if (selectedPlan) {
+                                const priceValue = parseFloat(
+                                  selectedPlan.price.replace(/[^0-9.]/g, "")
+                                );
+                                const currency =
+                                  products[0]?.currency_type?.toUpperCase() ||
+                                  "USD";
+
+                                // Store plan details for completion tracking
+                                setSelectedPlanDetails({
+                                  priceId: plan.priceId,
+                                  name: plan.name,
+                                  price: priceValue,
+                                  currency,
+                                });
+
+                                trackSubscriptionIntent(
+                                  plan.priceId,
+                                  plan.name,
+                                  priceValue,
+                                  currency
+                                );
+                              }
+
                               handleStripeCheckout(plan.priceId);
                             }}
                           >

@@ -823,11 +823,19 @@ export interface RegisterToGuestlistData {
   last_name?: string;
   plus_one_count?: number;
   referral_link?: string;
+  // UTM Parameters
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
   utm_term?: string;
   utm_content?: string;
+  // Click IDs for ad platforms
+  gclid?: string; // Google Ads Click ID
+  fbclid?: string; // Facebook Click ID
+  ttclid?: string; // TikTok Click ID
+  li_fat_id?: string; // LinkedIn Click ID
+  msclkid?: string; // Microsoft Ads Click ID
+  ref?: string; // Referral parameter
 }
 
 export interface GuestlistRegistrationResult {

@@ -12,13 +12,14 @@ import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
 
 // Internal utilities
-import { trackEvent, trackButtonClick } from "@/lib/analytics";
+import { trackEvent, trackButtonClick, trackAppInstallClick } from "@/lib/analytics";
+import { getAttribution } from "@/lib/attribution";
 import {
   registerToGuestlist,
   getEventDetails,
   type EventDetails,
 } from "@/lib/api";
-import { redirectToAppStore } from "@/lib/app-linking";
+import { redirectToAppStore, isIOS, isAndroid } from "@/lib/app-linking";
 import { formatEventDate, formatEventTime, isVideoUrl } from "@/lib/utils";
 
 interface EventPageClientProps {
@@ -356,13 +357,8 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       country_code: countryCode,
     });
 
-    // Extract ALL UTM parameters from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const utmSource = urlParams.get("utm_source");
-    const utmMedium = urlParams.get("utm_medium");
-    const utmCampaign = urlParams.get("utm_campaign");
-    const utmTerm = urlParams.get("utm_term");
-    const utmContent = urlParams.get("utm_content");
+    // Get attribution data (includes all UTM parameters and click IDs)
+    const attribution = getAttribution();
 
     // Register to guestlist via API
     try {
@@ -373,11 +369,17 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
         last_name: lastName.trim(),
         plus_one_count: 0,
         referral_link: window.location.href,
-        utm_source: utmSource || undefined,
-        utm_medium: utmMedium || undefined,
-        utm_campaign: utmCampaign || undefined,
-        utm_term: utmTerm || undefined,
-        utm_content: utmContent || undefined,
+        utm_source: attribution.utm_source,
+        utm_medium: attribution.utm_medium,
+        utm_campaign: attribution.utm_campaign,
+        utm_term: attribution.utm_term,
+        utm_content: attribution.utm_content,
+        gclid: attribution.gclid,
+        fbclid: attribution.fbclid,
+        ttclid: attribution.ttclid,
+        li_fat_id: attribution.li_fat_id,
+        msclkid: attribution.msclkid,
+        ref: attribution.ref,
       });
 
       const totalTime = Date.now() - submitStartTime;
@@ -484,6 +486,11 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       event_name: event?.event_name,
       from_state: alreadyRegistered ? "already_registered" : "new_registration",
     });
+    
+    // Track app install click with platform detection
+    const platform = isIOS() ? "ios" : isAndroid() ? "android" : "web";
+    trackAppInstallClick(platform, "event-success-card");
+    
     redirectToAppStore();
   };
 
