@@ -1,3 +1,8 @@
+// Force static generation - 404 page doesn't need SSR
+export const dynamic = "force-static";
+export const revalidate = 3600; // Revalidate every hour
+
+// Next.js imports
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 
@@ -32,4 +37,3 @@ export default function NotFound() {
     </div>
   );
 }
-

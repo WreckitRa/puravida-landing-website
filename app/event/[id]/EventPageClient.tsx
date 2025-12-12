@@ -1,58 +1,25 @@
 "use client";
 
+// React imports
 import { useState, useEffect, useRef } from "react";
+
+// Next.js imports
 import Image from "next/image";
 import Link from "next/link";
-import { trackEvent, trackButtonClick } from "@/lib/analytics";
+
+// Internal components
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import Header from "@/components/Header";
+
+// Internal utilities
+import { trackEvent, trackButtonClick } from "@/lib/analytics";
 import {
   registerToGuestlist,
   getEventDetails,
   type EventDetails,
 } from "@/lib/api";
 import { redirectToAppStore } from "@/lib/app-linking";
-
-// Local mock event data - temporarily using this instead of API
-const MOCK_EVENT_DATA: EventDetails = {
-  id: "a07eec3c-c9a6-4af7-b34f-8fe82ea8a0f0",
-  event_name: "FRIDAYS AT REUNION",
-  main_artist_name: "BAKH,ABLA",
-  other_artist_name: undefined,
-  venue: {
-    id: "9e68147d-0b20-477e-85c1-31c6a0232989",
-    name: "Reunion DXB",
-    image:
-      "https://api.puravida.events/storage/club_images/eOdiR9gsE0MsIqGAQviyKQG58PQ2IsPCkunMGeVe.webp",
-  },
-  date_time: "2025-12-05 23:00:00",
-  end_date: "2025-12-06 03:00:00",
-  guest_close_date_time: "2025-12-05 22:00",
-  file: "https://api.puravida.events/storage/event_images",
-  address: "Radisson Blu Hotel, Dubai",
-  guest_status: 1,
-  description: ".\r\n- Guestlist closes at 10:00PM \r\n- Door Closes at 1:00AM",
-  priority_entry_rules: undefined,
-  guest_max_capacity: 100,
-  current_guestlist_count: 25,
-  is_guestlist_open: true,
-  is_guestlist_full: false,
-  table_max_capacity: 100,
-  booking_status: 1,
-  age_policy: undefined,
-  type: 1,
-  dress_codes: [],
-  images: [
-    {
-      id: "a081f44a-8597-4fc6-b271-64080f9269fd",
-      name: "https://api.puravida.events/storage/event_images/P4sYLUulB3q9p2EQJDPu9B21cgZKPgvKf6wF8tfi.mp4",
-      url: "https://api.puravida.events/storage/event_images/https://api.puravida.events/storage/event_images/P4sYLUulB3q9p2EQJDPu9B21cgZKPgvKf6wF8tfi.mp4",
-    },
-  ],
-  club_profile: undefined,
-  restaurant_profile: undefined,
-  total_wishlist_count: 0,
-};
+import { formatEventDate, formatEventTime, isVideoUrl } from "@/lib/utils";
 
 interface EventPageClientProps {
   eventId: string;
@@ -97,63 +64,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
       : event?.file;
 
   // Check if the event banner is a video file
-  const isVideo = (() => {
-    if (!eventBannerUrl) return false;
-    const videoExtensions = [".mp4", ".webm", ".ogg", ".mov"];
-    const url = eventBannerUrl.toLowerCase();
-    return videoExtensions.some((ext) => url.includes(ext));
-  })();
-
-  // Format date and time from API response
-  const formatEventDate = (dateTime: string) => {
-    const date = new Date(dateTime);
-    const days = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    return `${days[date.getDay()]}, ${
-      months[date.getMonth()]
-    } ${date.getDate()}, ${date.getFullYear()}`;
-  };
-
-  const formatEventTime = (dateTime: string, endDate?: string) => {
-    const start = new Date(dateTime);
-    const startTime = start.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-
-    if (endDate) {
-      const end = new Date(endDate);
-      const endTime = end.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-      return `${startTime} - ${endTime}`;
-    }
-    return startTime;
-  };
+  const isVideo = isVideoUrl(eventBannerUrl);
 
   useEffect(() => {
     // Get the actual event ID from the URL path

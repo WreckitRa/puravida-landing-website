@@ -1,16 +1,18 @@
 "use client";
 
+// React imports
 import { useState, useEffect } from "react";
+
+// Next.js imports
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { trackButtonClick, trackConversion } from "@/lib/analytics";
-import {
-  getInviteData,
-  getApiData,
-  getWhoInvited,
-  encodeBase64,
-} from "@/lib/storage";
+
+// Internal components
 import Header from "@/components/Header";
+
+// Internal utilities
+import { trackButtonClick, trackConversion } from "@/lib/analytics";
+import { getInviteData, getApiData, encodeBase64 } from "@/lib/storage";
 
 interface UserData {
   first_name: string;

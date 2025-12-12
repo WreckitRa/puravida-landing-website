@@ -1,11 +1,18 @@
 "use client";
 
+// React imports
 import { useState, useEffect } from "react";
+
+// Next.js imports
 import Link from "next/link";
-import { getInviteData, getApiData, encodeBase64 } from "@/lib/storage";
-import { isMobile, redirectToAppStore } from "@/lib/app-linking";
+
+// Internal components
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+
+// Internal utilities
+import { getInviteData, getApiData, encodeBase64 } from "@/lib/storage";
+import { isMobile, redirectToAppStore } from "@/lib/app-linking";
 
 interface UserData {
   first_name: string;

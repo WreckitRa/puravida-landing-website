@@ -8,6 +8,8 @@ import { permanentRedirect } from "next/navigation";
  * regardless of Apache reverse proxy configuration.
  *
  * Handles all HTTP methods (GET, POST, etc.) - all redirect to /ihaveinvite
+ *
+ * Note: Redirects are already lightweight, no optimization needed
  */
 export async function GET() {
   permanentRedirect("/ihaveinvite");

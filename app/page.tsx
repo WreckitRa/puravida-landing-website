@@ -1,15 +1,23 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+// React imports
+import { useState, useEffect, Suspense, useCallback } from "react";
+
+// Next.js imports
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { trackButtonClick } from "@/lib/analytics";
+
+// Internal components
 import StructuredData from "@/components/StructuredData";
+import ContactModal from "@/components/ContactModal";
+
+// Internal utilities
+import { trackButtonClick } from "@/lib/analytics";
 import { decodeAndStoreInviteFromUrl, getWhoInvited } from "@/lib/storage";
 import { initAppLinking } from "@/lib/app-linking";
-import ContactModal from "@/components/ContactModal";
 import { getProducts, type Product } from "@/lib/api";
+import { formatPrice, scrollToElement } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/config";
 
 function LandingPageContent() {
@@ -58,18 +66,19 @@ function LandingPageContent() {
     fetchProducts();
   }, []);
 
-  // Format price based on currency
-  const formatPrice = (amount: number, currency: string = "usd") => {
-    const currencySymbols: Record<string, string> = {
-      usd: "$",
-      aed: "AED ",
-      eur: "€",
-      gbp: "£",
-    };
-    const symbol =
-      currencySymbols[currency.toLowerCase()] || currency.toUpperCase() + " ";
-    return `${symbol}${amount.toFixed(2)}`;
-  };
+  // Handle navigation scroll with tracking
+  const handleNavClick = useCallback(
+    (
+      e: React.MouseEvent<HTMLAnchorElement>,
+      label: string,
+      elementId: string
+    ) => {
+      e.preventDefault();
+      trackButtonClick(label, 0, "nav");
+      scrollToElement(elementId);
+    },
+    []
+  );
 
   // Partner logos
   const partners = [
@@ -161,88 +170,34 @@ function LandingPageContent() {
                 <a
                   href="#how-it-works"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    trackButtonClick("What is PuraVida", 0, "nav");
-                    const element = document.getElementById("how-it-works");
-                    if (element) {
-                      const headerOffset = 100;
-                      const elementPosition =
-                        element.getBoundingClientRect().top;
-                      const offsetPosition =
-                        elementPosition + window.pageYOffset - headerOffset;
-                      window.scrollTo({
-                        top: offsetPosition,
-                        behavior: "smooth",
-                      });
-                    }
-                  }}
+                  onClick={(e) =>
+                    handleNavClick(e, "What is PuraVida", "how-it-works")
+                  }
                 >
                   What is PuraVida?
                 </a>
                 <a
                   href="#how-it-works"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    trackButtonClick("How it works", 0, "nav");
-                    const element = document.getElementById("how-it-works");
-                    if (element) {
-                      const headerOffset = 100;
-                      const elementPosition =
-                        element.getBoundingClientRect().top;
-                      const offsetPosition =
-                        elementPosition + window.pageYOffset - headerOffset;
-                      window.scrollTo({
-                        top: offsetPosition,
-                        behavior: "smooth",
-                      });
-                    }
-                  }}
+                  onClick={(e) =>
+                    handleNavClick(e, "How it works", "how-it-works")
+                  }
                 >
                   How it works?
                 </a>
                 <a
                   href="#benefits"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    trackButtonClick("Benefits", 0, "nav");
-                    const element = document.getElementById("benefits");
-                    if (element) {
-                      const headerOffset = 100;
-                      const elementPosition =
-                        element.getBoundingClientRect().top;
-                      const offsetPosition =
-                        elementPosition + window.pageYOffset - headerOffset;
-                      window.scrollTo({
-                        top: offsetPosition,
-                        behavior: "smooth",
-                      });
-                    }
-                  }}
+                  onClick={(e) => handleNavClick(e, "Benefits", "benefits")}
                 >
                   Benefits
                 </a>
                 <a
                   href="#memberships"
                   className="text-white/80 hover:text-white transition-colors font-medium text-sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    trackButtonClick("Memberships", 0, "nav");
-                    const element = document.getElementById("memberships");
-                    if (element) {
-                      const headerOffset = 100;
-                      const elementPosition =
-                        element.getBoundingClientRect().top;
-                      const offsetPosition =
-                        elementPosition + window.pageYOffset - headerOffset;
-                      window.scrollTo({
-                        top: offsetPosition,
-                        behavior: "smooth",
-                      });
-                    }
-                  }}
+                  onClick={(e) =>
+                    handleNavClick(e, "Memberships", "memberships")
+                  }
                 >
                   Memberships
                 </a>

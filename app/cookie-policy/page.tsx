@@ -1,18 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+// Next.js imports
 import Link from "next/link";
 
 export default function CookiePolicyPage() {
-  useEffect(() => {
-    // Track page view
-    if (typeof window !== "undefined" && (window as any).gtag) {
-      (window as any).gtag("config", "G-7XGLG30T94", {
-        page_path: "/cookie-policy",
-      });
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Animated background elements */}

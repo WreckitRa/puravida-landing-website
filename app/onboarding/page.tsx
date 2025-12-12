@@ -1,7 +1,18 @@
 "use client";
 
+// React imports
 import { useState, useEffect, useRef, Suspense } from "react";
+
+// Next.js imports
 import { useSearchParams } from "next/navigation";
+
+// Internal components
+import StructuredData from "@/components/StructuredData";
+import PhoneCodeSelector from "@/components/PhoneCodeSelector";
+import CountrySelector from "@/components/CountrySelector";
+import PaymentModal from "@/components/PaymentModal";
+
+// Internal utilities
 import {
   trackStepView,
   trackStepComplete,
@@ -18,7 +29,6 @@ import {
   getAttribution,
   type AttributionData,
 } from "@/lib/attribution";
-import StructuredData from "@/components/StructuredData";
 import {
   submitOnboarding,
   type OnboardingSubmissionData,
@@ -26,17 +36,6 @@ import {
   type Country,
   savePartialOnboarding,
   type PartialOnboardingData,
-} from "@/lib/api";
-import PhoneCodeSelector from "@/components/PhoneCodeSelector";
-import CountrySelector from "@/components/CountrySelector";
-import { decodeAndStoreInviteFromUrl } from "@/lib/storage";
-import { initAppLinking, isAndroid, isIOS } from "@/lib/app-linking";
-import {
-  validateInstagramHandle,
-  validatePhoneNumber,
-  getInvityNumber,
-} from "@/lib/validation";
-import {
   createManualUser,
   type CreateManualUserResponse,
   getProducts,
@@ -44,7 +43,14 @@ import {
   createSubscription,
   type CreateSubscriptionResponse,
 } from "@/lib/api";
-import PaymentModal from "@/components/PaymentModal";
+import { decodeAndStoreInviteFromUrl } from "@/lib/storage";
+import { initAppLinking, isAndroid, isIOS } from "@/lib/app-linking";
+import {
+  validateInstagramHandle,
+  validatePhoneNumber,
+  getInvityNumber,
+} from "@/lib/validation";
+import { formatPrice } from "@/lib/utils";
 
 type FormData = {
   // Step 1
@@ -567,7 +573,7 @@ function OnboardingPageContent() {
               c.country_code === parseInt(formData.phoneCode, 10)
           );
           const country_id = phoneCountry?.id;
-          
+
           if (!country_id) {
             console.error(
               "Invalid country_id for phone code:",
@@ -612,7 +618,8 @@ function OnboardingPageContent() {
           ];
 
           // Check if nationality_id exactly matches one of the restricted country IDs
-          const isRestrictedCountry = restrictedCountryIds.includes(nationality_id);
+          const isRestrictedCountry =
+            restrictedCountryIds.includes(nationality_id);
 
           // Check if user is male (genderValue === "1")
           const isMale = genderValue === "1";
@@ -1028,17 +1035,6 @@ function OnboardingPageContent() {
   };
 
   // Format price based on currency
-  const formatPrice = (amount: number, currency: string = "usd") => {
-    const currencySymbols: Record<string, string> = {
-      usd: "$",
-      aed: "AED ",
-      eur: "€",
-      gbp: "£",
-    };
-    const symbol =
-      currencySymbols[currency.toLowerCase()] || currency.toUpperCase() + " ";
-    return `${symbol}${amount.toFixed(2)}`;
-  };
 
   const getProgress = () => {
     if (currentStep === 1) return 0; // Hero

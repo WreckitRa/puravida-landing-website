@@ -1,5 +1,11 @@
+// React imports
 import { Suspense } from "react";
+
+// Internal components
 import EventPageClient from "./EventPageClient";
+
+// Use ISR instead of pure SSR - cache for 60 seconds
+export const revalidate = 60;
 
 interface EventPageProps {
   params: Promise<{ id: string }>;
@@ -7,9 +13,6 @@ interface EventPageProps {
 
 export default async function EventPage({ params }: EventPageProps) {
   const { id } = await params;
-
-  // With SSR, we can use the actual event ID directly from the route params
-  const eventId = id;
 
   return (
     <Suspense
@@ -19,7 +22,7 @@ export default async function EventPage({ params }: EventPageProps) {
         </div>
       }
     >
-      <EventPageClient eventId={eventId} />
+      <EventPageClient eventId={id} />
     </Suspense>
   );
 }
