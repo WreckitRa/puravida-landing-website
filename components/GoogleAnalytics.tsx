@@ -10,14 +10,17 @@ import { trackPageView } from "@/lib/analytics";
  * Uses Next.js Script component for optimal loading
  * Matches the working ga-test.html implementation
  */
+
+// Get measurement ID at module level for build-time embedding
+// NEXT_PUBLIC_* vars must be accessed at module level, not inside component
+// This ensures they're embedded during build, not runtime
+const measurementId =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
+  process.env.NEXT_PUBLIC_GA4_ID ||
+  "";
+
 export default function GoogleAnalytics() {
   const pathname = usePathname();
-
-  // Get measurement ID from environment variable
-  const measurementId =
-    process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ||
-    process.env.NEXT_PUBLIC_GA4_ID ||
-    "";
 
   // Track page views on route change
   useEffect(() => {
@@ -36,10 +39,12 @@ export default function GoogleAnalytics() {
   }, [pathname, measurementId]);
 
   if (!measurementId) {
-    if (process.env.NODE_ENV === "development") {
+    // Warn in both dev and production (but only once)
+    if (typeof window !== "undefined") {
       console.warn(
         "⚠️ Google Analytics: Measurement ID not found!\n" +
-          "Set NEXT_PUBLIC_GA_MEASUREMENT_ID or NEXT_PUBLIC_GA4_ID in your environment variables."
+          "Set NEXT_PUBLIC_GA_MEASUREMENT_ID or NEXT_PUBLIC_GA4_ID in your environment variables.\n" +
+          "IMPORTANT: Rebuild after setting the variable (npm run build)"
       );
     }
     return null;
