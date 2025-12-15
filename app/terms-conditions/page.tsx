@@ -1,9 +1,5 @@
 "use client";
 
-// Next.js static generation config
-export const dynamic = "force-static";
-export const revalidate = 300; // 5 minutes
-
 // Next.js imports
 import Link from "next/link";
 
