@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { congratulationMetadata } from "./metadata";
 
+export const dynamic = "force-static";
+
 export const metadata: Metadata = congratulationMetadata;
 
 export default function CongratulationLayout({

@@ -1,11 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   images: {
     unoptimized: true,
   },
   // Optimize build output for better performance
   compress: true, // Enable gzip compression
   poweredByHeader: false, // Remove X-Powered-By header for security
+  experimental: {
+    serverActions: false,
+  },
 };
 
 module.exports = nextConfig;

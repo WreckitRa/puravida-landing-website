@@ -28,14 +28,18 @@ import { formatEventDate, formatEventTime, isVideoUrl } from "@/lib/utils";
 
 interface EventPageClientProps {
   eventId: string;
+  initialEvent?: EventDetails | null;
 }
 
-export default function EventPageClient({ eventId }: EventPageClientProps) {
+export default function EventPageClient({
+  eventId,
+  initialEvent,
+}: EventPageClientProps) {
   // Get the actual event ID from URL (in case we're on the fallback page)
   const [actualEventId, setActualEventId] = useState(eventId);
   const [isVisible, setIsVisible] = useState(false);
-  const [event, setEvent] = useState<EventDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [event, setEvent] = useState<EventDetails | null>(initialEvent || null);
+  const [isLoading, setIsLoading] = useState(!initialEvent);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -92,7 +96,15 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
 
     setActualEventId(finalEventId);
 
-    // Fetch event data from API
+    // If we have initial event data from server, use it and skip fetch
+    if (initialEvent && initialEvent.id === finalEventId) {
+      setEvent(initialEvent);
+      setIsVisible(true);
+      setIsLoading(false);
+      return;
+    }
+
+    // Fetch event data from API (fallback for client-side navigation)
     const fetchEventData = async () => {
       setIsLoading(true);
       setLoadingError("");
@@ -163,7 +175,7 @@ export default function EventPageClient({ eventId }: EventPageClientProps) {
     };
 
     fetchEventData();
-  }, [eventId]);
+  }, [eventId, initialEvent]);
 
   // Intersection Observer to detect when form is visible
   useEffect(() => {

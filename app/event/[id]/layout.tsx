@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+export const dynamic = "force-static";
+
 export const metadata: Metadata = {
   title: "Event | PuraVida",
   description: "Join PuraVida's exclusive events and get on the guest list",
@@ -17,15 +19,3 @@ export default function EventLayout({
 }) {
   return <>{children}</>;
 }
-
-
-
-
-
-
-
-
-
-
-
-

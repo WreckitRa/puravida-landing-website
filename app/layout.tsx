@@ -3,6 +3,9 @@ import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 
+// Force static generation globally
+export const dynamic = "force-static";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
