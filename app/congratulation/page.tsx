@@ -1,5 +1,9 @@
 "use client";
 
+// Next.js static generation config
+export const dynamic = "force-static";
+export const revalidate = 300; // 5 minutes
+
 // React imports
 import { useState, useEffect } from "react";
 

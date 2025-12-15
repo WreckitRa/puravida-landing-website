@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import EventPageClient from "./EventPageClient";
 
 // Use ISR instead of pure SSR - cache for 60 seconds
+export const dynamic = "force-static";
 export const revalidate = 60;
 
 interface EventPageProps {
