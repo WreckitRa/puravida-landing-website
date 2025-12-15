@@ -1,12 +1,11 @@
 {
   "name": "puravida-new-website",
-  "version": "0.1.59",
+  "version": "0.1.60",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:prod": "NODE_ENV=production next build",
-    "start": "NODE_ENV=production node .next/standalone/server.js",
+    "start": "NODE_ENV=production next start -p 3000",
     "lint": "eslint"
   },
   "dependencies": {
