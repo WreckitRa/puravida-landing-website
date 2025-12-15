@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
   images: {
     unoptimized: true,
   },
+
   async redirects() {
     return [
       {
@@ -13,9 +13,9 @@ const nextConfig = {
       },
     ];
   },
-  // Optimize build output for better performance
-  compress: true, // Enable gzip compression
-  poweredByHeader: false, // Remove X-Powered-By header for security
+
+  compress: true,
+  poweredByHeader: false,
 };
 
 module.exports = nextConfig;
