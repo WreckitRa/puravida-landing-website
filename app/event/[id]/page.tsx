@@ -1,18 +1,27 @@
 // React imports
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 
 // Internal components
 import EventPageClient from "./EventPageClient";
 
-// Use ISR instead of pure SSR - cache for 60 seconds
-export const dynamic = "force-static";
-export const revalidate = 60;
+// Dynamic route with ISR-style caching on fetch
+export const dynamic = "force-dynamic";
 
 interface EventPageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
-// Server-side function to fetch event data with ISR
+// Lightweight ID validation to avoid heavy work on malformed input
+function isValidEventId(id: string | undefined | null): id is string {
+  if (!id) return false;
+  // Only allow reasonably sized slug/ID values
+  if (id.length > 64) return false;
+  // Basic safety: restrict to URL-safe characters
+  return /^[a-zA-Z0-9_-]+$/.test(id);
+}
+
+// Server-side function to fetch event data with caching
 async function getEvent(id: string) {
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "https://api.puravida.events";
@@ -24,7 +33,7 @@ async function getEvent(id: string) {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      next: { revalidate: 60 }, // ISR cache for 60 seconds
+      next: { revalidate: 300 },
     });
 
     if (!response.ok) {
@@ -40,8 +49,17 @@ async function getEvent(id: string) {
 }
 
 export default async function EventPage({ params }: EventPageProps) {
-  const { id } = await params;
+  const id = params?.id;
+
+  if (!isValidEventId(id)) {
+    return notFound();
+  }
+
   const event = await getEvent(id);
+
+  if (!event) {
+    return notFound();
+  }
 
   return (
     <Suspense

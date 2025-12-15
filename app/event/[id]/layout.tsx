@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Event | PuraVida",
