@@ -1,11 +1,13 @@
 "use client";
 
-// Next.js static generation config
-export const dynamic = "force-static";
-export const revalidate = 300; // 5 minutes
-
 // React imports
-import { useState, useEffect, Suspense, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  Suspense,
+  useCallback,
+  startTransition,
+} from "react";
 
 // Next.js imports
 import { useSearchParams } from "next/navigation";
@@ -41,13 +43,17 @@ function LandingPageContent() {
     if (encodedInvite) {
       const { invite } = decodeAndStoreInviteFromUrl(encodedInvite);
       if (invite) {
-        setWhoInvited(invite);
+        startTransition(() => {
+          setWhoInvited(invite);
+        });
       }
     } else {
       // If no invite in URL, check localStorage
       const storedInvite = getWhoInvited();
       if (storedInvite !== "PuraVida") {
-        setWhoInvited(storedInvite);
+        startTransition(() => {
+          setWhoInvited(storedInvite);
+        });
       }
     }
 
