@@ -1,6 +1,6 @@
 {
   "events": {
-    "abla": {
+    "abla-reunion": {
       "partyName": "ABLA x SARA LAROUTINE",
       "partyBanner": {
         "type": "image",
@@ -10,7 +10,7 @@
       "partyStartTime": "2026-01-08T20:00:00Z",
       "sheetUrl": "https://docs.google.com/spreadsheets/d/1OeXhM_GIOgA1HkQW9lMrR0MWDeHzTFdP5iXo1bmE59Q"
     },
-    "sara": {
+    "sara-reunion": {
       "partyName": "SARA LAROUTINE x ABLA",
       "partyBanner": {
         "type": "image",

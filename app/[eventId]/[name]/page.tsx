@@ -2,12 +2,12 @@ import { Suspense } from "react";
 import FriendsFamilyInviteClient from "./FriendsFamilyInviteClient";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-interface FriendsFamilyInvitePageProps {
-  params: Promise<{ name: string }>;
-  searchParams: Promise<{ event?: string }>;
+interface EventInvitePageProps {
+  params: Promise<{ eventId: string; name: string }>;
 }
 
 // Extract sheet ID from Google Sheets URL
@@ -69,6 +69,11 @@ function getEventConfig(config: any, eventId: string | null) {
     return events[eventId];
   }
   
+  // If eventId was provided but doesn't exist, return null (will trigger 404)
+  if (eventId && !events[eventId]) {
+    return null;
+  }
+  
   // Otherwise use default event
   if (events.default) {
     return events.default;
@@ -93,12 +98,10 @@ function getEventConfig(config: any, eventId: string | null) {
   };
 }
 
-export default async function FriendsFamilyInvitePage({
+export default async function EventInvitePage({
   params,
-  searchParams,
-}: FriendsFamilyInvitePageProps) {
-  const { name } = await params;
-  const { event } = await searchParams;
+}: EventInvitePageProps) {
+  const { eventId, name } = await params;
   const decodedName = decodeURIComponent(name || "");
   
   // Remove timestamp for display, but keep original for sheet
@@ -108,7 +111,13 @@ export default async function FriendsFamilyInvitePage({
   
   // Load config and get the specific event
   const config = loadPartyConfig();
-  const partyConfig = getEventConfig(config, event || null);
+  const partyConfig = getEventConfig(config, eventId);
+  
+  // If event not found, return 404
+  if (!partyConfig) {
+    notFound();
+  }
+  
   const sheetId = extractSheetId(partyConfig.sheetUrl);
 
   return (
@@ -120,6 +129,7 @@ export default async function FriendsFamilyInvitePage({
       }
     >
       <FriendsFamilyInviteClient
+        eventId={eventId}
         inviterName={inviterName}
         originalInviterName={originalInviterName}
         partyConfig={partyConfig}

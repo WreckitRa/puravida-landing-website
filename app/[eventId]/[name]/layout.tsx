@@ -3,16 +3,16 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Friends & Family Invitation | PuraVida",
+  title: "Event Invitation | PuraVida",
   description: "You're invited to an exclusive event",
   openGraph: {
-    title: "Friends & Family Invitation | PuraVida",
+    title: "Event Invitation | PuraVida",
     description: "You're invited to an exclusive event",
     type: "website",
   },
 };
 
-export default function FriendsFamilyInviteLayout({
+export default function EventInviteLayout({
   children,
 }: {
   children: React.ReactNode;

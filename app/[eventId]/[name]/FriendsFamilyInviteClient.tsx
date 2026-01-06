@@ -19,6 +19,7 @@ interface PartyConfig {
 }
 
 interface FriendsFamilyInviteClientProps {
+  eventId: string;
   inviterName: string; // Display name (without timestamp)
   originalInviterName: string; // Original name (with timestamp) for sheet
   partyConfig: PartyConfig;
@@ -26,6 +27,7 @@ interface FriendsFamilyInviteClientProps {
 }
 
 export default function FriendsFamilyInviteClient({
+  eventId,
   inviterName,
   originalInviterName,
   partyConfig,
@@ -72,8 +74,9 @@ export default function FriendsFamilyInviteClient({
     trackEvent("friends_family_invite_page_viewed", {
       inviter_name: inviterName,
       party_name: partyConfig.partyName,
+      event_id: eventId,
     });
-  }, [inviterName, partyConfig.partyName]);
+  }, [inviterName, partyConfig, eventId]);
 
   // Intersection Observer to detect when form is visible
   useEffect(() => {
@@ -161,6 +164,7 @@ export default function FriendsFamilyInviteClient({
     trackEvent("friends_family_rsvp_submit_attempt", {
       inviter_name: inviterName,
       party_name: partyConfig.partyName,
+      event_id: eventId,
     });
 
     try {
@@ -189,27 +193,25 @@ export default function FriendsFamilyInviteClient({
         trackEvent("friends_family_rsvp_duplicate", {
           inviter_name: inviterName,
           party_name: partyConfig.partyName,
+          event_id: eventId,
         });
       } else if (!response.ok || !result.success) {
         setError(result.message || "Failed to submit RSVP. Please try again.");
         trackEvent("friends_family_rsvp_error", {
           inviter_name: inviterName,
           party_name: partyConfig.partyName,
+          event_id: eventId,
           error_message: result.message,
         });
       } else {
         // Store firstName before clearing for link generation
         const savedFirstName = firstName.trim();
         
-        // Generate personal link
+        // Generate personal link with new URL format: /[eventId]/[name]
         const timestamp = Date.now();
         const firstNameLower = savedFirstName.toLowerCase().replace(/\s+/g, "-");
-        const eventParam = typeof window !== "undefined" 
-          ? new URLSearchParams(window.location.search).get("event") || ""
-          : "";
-        const eventQuery = eventParam ? `?event=${eventParam}` : "";
         const personalInviteLink = typeof window !== "undefined"
-          ? `${window.location.origin}/friends-n-family-invite/${firstNameLower}-${timestamp}${eventQuery}`
+          ? `${window.location.origin}/${eventId}/${firstNameLower}-${timestamp}`
           : "";
         
         setIsSubmitted(true);
@@ -221,6 +223,7 @@ export default function FriendsFamilyInviteClient({
         trackEvent("friends_family_rsvp_success", {
           inviter_name: inviterName,
           party_name: partyConfig.partyName,
+          event_id: eventId,
         });
       }
     } catch (err) {
@@ -229,6 +232,7 @@ export default function FriendsFamilyInviteClient({
       trackEvent("friends_family_rsvp_network_error", {
         inviter_name: inviterName,
         party_name: partyConfig.partyName,
+        event_id: eventId,
       });
     } finally {
       setIsSubmitting(false);
@@ -281,14 +285,21 @@ export default function FriendsFamilyInviteClient({
                 />
               ) : (
                 <div className="relative w-full">
-                  <Image
-                    src={partyConfig.partyBanner.url}
-                    alt={partyConfig.partyName}
-                    width={1200}
-                    height={800}
-                    className="w-full h-auto object-contain"
-                    unoptimized
-                  />
+                  {partyConfig.partyBanner?.url ? (
+                    <Image
+                      src={partyConfig.partyBanner.url}
+                      alt={partyConfig.partyName}
+                      width={1200}
+                      height={800}
+                      className="w-full h-auto object-contain"
+                      unoptimized
+                      priority
+                    />
+                  ) : (
+                    <div className="w-full aspect-video bg-gradient-to-br from-[#E91180]/20 to-[#EB1E44]/20 flex items-center justify-center">
+                      <p className="text-white/60">Banner image not found</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
