@@ -18,40 +18,25 @@ export function formatPrice(amount: number, currency: string = "usd"): string {
 }
 
 /**
- * Format event date to readable string
+ * Format event date to readable string (always in Dubai timezone)
  */
 export function formatEventDate(dateTime: string): string {
   const date = new Date(dateTime);
-  const days = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-  const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  return `${days[date.getDay()]}, ${
-    months[date.getMonth()]
-  } ${date.getDate()}, ${date.getFullYear()}`;
+  
+  // Format in Dubai timezone
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dubai",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  
+  return formatter.format(date);
 }
 
 /**
- * Format event time range
+ * Format event time range (always in Dubai timezone)
  */
 export function formatEventTime(dateTime: string, endDate?: string): string {
   const start = new Date(dateTime);
@@ -59,6 +44,7 @@ export function formatEventTime(dateTime: string, endDate?: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
+    timeZone: "Asia/Dubai",
   });
 
   if (endDate) {
@@ -67,6 +53,7 @@ export function formatEventTime(dateTime: string, endDate?: string): string {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
+      timeZone: "Asia/Dubai",
     });
     return `${startTime} - ${endTime}`;
   }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import PhoneCodeSelector from "@/components/PhoneCodeSelector";
 import { trackEvent, trackButtonClick } from "@/lib/analytics";
@@ -19,20 +20,31 @@ interface PartyConfig {
 }
 
 interface FriendsFamilyInviteClientProps {
-  eventId: string;
   inviterName: string; // Display name (without timestamp)
   originalInviterName: string; // Original name (with timestamp) for sheet
-  partyConfig: PartyConfig;
+  partyConfig: PartyConfig; // Initial config (may be wrong if event param not read)
   sheetId: string | null;
 }
 
 export default function FriendsFamilyInviteClient({
-  eventId,
   inviterName,
   originalInviterName,
-  partyConfig,
-  sheetId,
+  partyConfig: initialPartyConfig,
+  sheetId: initialSheetId,
 }: FriendsFamilyInviteClientProps) {
+  const searchParams = useSearchParams();
+  const [partyConfig, setPartyConfig] = useState<PartyConfig>(initialPartyConfig);
+  const [sheetId, setSheetId] = useState<string | null>(initialSheetId);
+
+  // Extract sheet ID helper
+  const extractSheetId = (sheetUrl: string): string | null => {
+    try {
+      const match = sheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  };
   const [isVisible, setIsVisible] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -49,6 +61,36 @@ export default function FriendsFamilyInviteClient({
   const [linkCopied, setLinkCopied] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const firstNameInputRef = useRef<HTMLInputElement>(null);
+
+  // Load correct event config from client-side URL
+  useEffect(() => {
+    const eventParam = searchParams.get("event");
+    
+    console.log("Client-side event parameter:", eventParam);
+    console.log("Current party config:", partyConfig.partyName);
+    
+    if (eventParam && eventParam !== initialPartyConfig.partyName) {
+      // Fetch the correct config based on event parameter
+      fetch("/api/party-config")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.events && data.events[eventParam]) {
+            const correctConfig = data.events[eventParam];
+            setPartyConfig(correctConfig);
+            const newSheetId = extractSheetId(correctConfig.sheetUrl);
+            setSheetId(newSheetId);
+            console.log("✅ Loaded correct event config:", eventParam);
+            console.log("✅ Party name:", correctConfig.partyName);
+            console.log("✅ Banner URL:", correctConfig.partyBanner?.url);
+          } else {
+            console.warn("Event not found in config:", eventParam);
+          }
+        })
+        .catch((err) => {
+          console.error("Error loading party config:", err);
+        });
+    }
+  }, [searchParams, initialPartyConfig.partyName]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -70,13 +112,17 @@ export default function FriendsFamilyInviteClient({
       setIsGuestlistClosed(true);
     }
 
+    // Debug logging
+    console.log("Party Config:", partyConfig);
+    console.log("Banner URL:", partyConfig.partyBanner?.url);
+    console.log("Banner Type:", partyConfig.partyBanner?.type);
+
     // Track page view
     trackEvent("friends_family_invite_page_viewed", {
       inviter_name: inviterName,
       party_name: partyConfig.partyName,
-      event_id: eventId,
     });
-  }, [inviterName, partyConfig, eventId]);
+  }, [inviterName, partyConfig]);
 
   // Intersection Observer to detect when form is visible
   useEffect(() => {
@@ -164,7 +210,6 @@ export default function FriendsFamilyInviteClient({
     trackEvent("friends_family_rsvp_submit_attempt", {
       inviter_name: inviterName,
       party_name: partyConfig.partyName,
-      event_id: eventId,
     });
 
     try {
@@ -193,25 +238,27 @@ export default function FriendsFamilyInviteClient({
         trackEvent("friends_family_rsvp_duplicate", {
           inviter_name: inviterName,
           party_name: partyConfig.partyName,
-          event_id: eventId,
         });
       } else if (!response.ok || !result.success) {
         setError(result.message || "Failed to submit RSVP. Please try again.");
         trackEvent("friends_family_rsvp_error", {
           inviter_name: inviterName,
           party_name: partyConfig.partyName,
-          event_id: eventId,
           error_message: result.message,
         });
       } else {
         // Store firstName before clearing for link generation
         const savedFirstName = firstName.trim();
         
-        // Generate personal link with new URL format: /[eventId]/[name]
+        // Generate personal link
         const timestamp = Date.now();
         const firstNameLower = savedFirstName.toLowerCase().replace(/\s+/g, "-");
+        const eventParam = typeof window !== "undefined" 
+          ? new URLSearchParams(window.location.search).get("event") || ""
+          : "";
+        const eventQuery = eventParam ? `?event=${eventParam}` : "";
         const personalInviteLink = typeof window !== "undefined"
-          ? `${window.location.origin}/${eventId}/${firstNameLower}-${timestamp}`
+          ? `${window.location.origin}/friends-n-family-invite/${firstNameLower}-${timestamp}${eventQuery}`
           : "";
         
         setIsSubmitted(true);
@@ -223,7 +270,6 @@ export default function FriendsFamilyInviteClient({
         trackEvent("friends_family_rsvp_success", {
           inviter_name: inviterName,
           party_name: partyConfig.partyName,
-          event_id: eventId,
         });
       }
     } catch (err) {
@@ -232,7 +278,6 @@ export default function FriendsFamilyInviteClient({
       trackEvent("friends_family_rsvp_network_error", {
         inviter_name: inviterName,
         party_name: partyConfig.partyName,
-        event_id: eventId,
       });
     } finally {
       setIsSubmitting(false);
@@ -661,5 +706,4 @@ export default function FriendsFamilyInviteClient({
     </div>
   );
 }
-
 

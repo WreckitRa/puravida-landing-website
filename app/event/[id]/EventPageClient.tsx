@@ -716,7 +716,7 @@ export default function EventPageClient({
                       </span>
                       <span className="text-white/50">•</span>
                       <span className="text-white font-medium">
-                        {formatEventTime(event.date_time, event.end_date)}
+                        {formatEventTime(event.date_time, event.end_date)} <span className="text-white/60 text-sm">(Dubai time)</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm lg:text-base">

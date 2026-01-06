@@ -6,8 +6,8 @@
         "type": "image",
         "url": "/assets/abla-banner.jpg"
       },
-      "guestlistCloseTime": "2026-01-09T21:00:00Z",
-      "partyStartTime": "2026-01-08T20:00:00Z",
+      "guestlistCloseTime": "2026-01-10T01:00:00+04:00",
+      "partyStartTime": "2026-01-10T00:00:00+04:00",
       "sheetUrl": "https://docs.google.com/spreadsheets/d/1OeXhM_GIOgA1HkQW9lMrR0MWDeHzTFdP5iXo1bmE59Q"
     },
     "sara-reunion": {
@@ -16,8 +16,8 @@
         "type": "image",
         "url": "/assets/sara-banner.jpg"
       },
-      "guestlistCloseTime": "2026-01-09T21:00:00Z",
-      "partyStartTime": "2026-01-08T20:00:00Z",
+      "guestlistCloseTime": "2026-01-10T01:00:00+04:00",
+      "partyStartTime": "2026-01-10T00:00:00+04:00",
       "sheetUrl": "https://docs.google.com/spreadsheets/d/1OeXhM_GIOgA1HkQW9lMrR0MWDeHzTFdP5iXo1bmE59Q"
     }
   }

@@ -2,12 +2,13 @@ import { Suspense } from "react";
 import FriendsFamilyInviteClient from "./FriendsFamilyInviteClient";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
-interface EventInvitePageProps {
-  params: Promise<{ eventId: string; name: string }>;
+interface FriendsFamilyInvitePageProps {
+  params: Promise<{ name: string }>;
+  searchParams: Promise<{ event?: string }>;
 }
 
 // Extract sheet ID from Google Sheets URL
@@ -64,28 +65,35 @@ function loadPartyConfig() {
 function getEventConfig(config: any, eventId: string | null) {
   const events = config?.events || {};
   
+  console.log("getEventConfig called with eventId:", eventId);
+  console.log("Available event keys:", Object.keys(events));
+  
   // If eventId is provided and exists, use it
   if (eventId && events[eventId]) {
+    console.log("Found event:", eventId);
     return events[eventId];
   }
   
-  // If eventId was provided but doesn't exist, return null (will trigger 404)
+  // If eventId was provided but doesn't exist, log warning
   if (eventId && !events[eventId]) {
-    return null;
+    console.warn(`Event "${eventId}" not found in config. Available events:`, Object.keys(events));
   }
   
   // Otherwise use default event
   if (events.default) {
+    console.log("Using default event");
     return events.default;
   }
   
   // Fallback to first available event
   const eventKeys = Object.keys(events);
   if (eventKeys.length > 0) {
+    console.log("Falling back to first available event:", eventKeys[0]);
     return events[eventKeys[0]];
   }
   
   // Last resort: return empty config
+  console.warn("No events found in config, using fallback");
   return {
     partyName: "Exclusive House Party",
     partyBanner: {
@@ -98,10 +106,36 @@ function getEventConfig(config: any, eventId: string | null) {
   };
 }
 
-export default async function EventInvitePage({
+export default async function FriendsFamilyInvitePage({
   params,
-}: EventInvitePageProps) {
-  const { eventId, name } = await params;
+  searchParams,
+}: FriendsFamilyInvitePageProps) {
+  const { name } = await params;
+  
+  // Try to get event from searchParams first
+  let event: string | null = null;
+  try {
+    const resolvedSearchParams = await searchParams;
+    event = resolvedSearchParams?.event || null;
+  } catch (error) {
+    console.warn("Error reading searchParams:", error);
+  }
+  
+  // Fallback: Read from headers if searchParams doesn't work
+  if (!event) {
+    try {
+      const headersList = await headers();
+      const referer = headersList.get("referer") || "";
+      const url = new URL(referer || "http://localhost");
+      event = url.searchParams.get("event");
+    } catch (error) {
+      console.warn("Error reading from headers:", error);
+    }
+  }
+  
+  // Debug: Log the entire searchParams object
+  console.log("Full searchParams object:", await searchParams);
+  console.log("Event from searchParams:", event);
   const decodedName = decodeURIComponent(name || "");
   
   // Remove timestamp for display, but keep original for sheet
@@ -111,14 +145,21 @@ export default async function EventInvitePage({
   
   // Load config and get the specific event
   const config = loadPartyConfig();
-  const partyConfig = getEventConfig(config, eventId);
   
-  // If event not found, return 404
-  if (!partyConfig) {
-    notFound();
-  }
+  // Debug logging BEFORE getEventConfig
+  console.log("=== DEBUG INFO ===");
+  console.log("Event parameter from URL:", event);
+  console.log("Event parameter type:", typeof event);
+  console.log("Event parameter value (stringified):", JSON.stringify(event));
+  console.log("Available events in config:", Object.keys(config?.events || {}));
   
+  const partyConfig = getEventConfig(config, event);
   const sheetId = extractSheetId(partyConfig.sheetUrl);
+  
+  // Debug logging AFTER getEventConfig
+  console.log("Selected party config:", partyConfig.partyName);
+  console.log("Banner URL:", partyConfig.partyBanner?.url);
+  console.log("==================");
 
   return (
     <Suspense
@@ -129,7 +170,6 @@ export default async function EventInvitePage({
       }
     >
       <FriendsFamilyInviteClient
-        eventId={eventId}
         inviterName={inviterName}
         originalInviterName={originalInviterName}
         partyConfig={partyConfig}
@@ -138,5 +178,4 @@ export default async function EventInvitePage({
     </Suspense>
   );
 }
-
 

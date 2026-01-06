@@ -200,7 +200,7 @@ export default function HousePartyClient({ inviterName }: HousePartyClientProps)
                   <div>
                     <p className="text-white/60 text-sm">Date & Time</p>
                     <p className="text-white font-medium">{eventDetails.date}</p>
-                    <p className="text-white font-medium">{eventDetails.time}</p>
+                    <p className="text-white font-medium">{eventDetails.time} <span className="text-white/60 text-sm">(Dubai time)</span></p>
                   </div>
                 </div>
 
@@ -469,4 +469,5 @@ export default function HousePartyClient({ inviterName }: HousePartyClientProps)
     </div>
   );
 }
+
 
