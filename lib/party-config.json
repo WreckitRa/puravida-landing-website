@@ -1,0 +1,24 @@
+{
+  "events": {
+    "abla": {
+      "partyName": "ABLA x SARA LAROUTINE",
+      "partyBanner": {
+        "type": "image",
+        "url": "/assets/abla-banner.jpg"
+      },
+      "guestlistCloseTime": "2026-01-09T21:00:00Z",
+      "partyStartTime": "2026-01-08T20:00:00Z",
+      "sheetUrl": "https://docs.google.com/spreadsheets/d/1OeXhM_GIOgA1HkQW9lMrR0MWDeHzTFdP5iXo1bmE59Q"
+    },
+    "sara": {
+      "partyName": "SARA LAROUTINE x ABLA",
+      "partyBanner": {
+        "type": "image",
+        "url": "/assets/sara-banner.jpg"
+      },
+      "guestlistCloseTime": "2026-01-09T21:00:00Z",
+      "partyStartTime": "2026-01-08T20:00:00Z",
+      "sheetUrl": "https://docs.google.com/spreadsheets/d/1OeXhM_GIOgA1HkQW9lMrR0MWDeHzTFdP5iXo1bmE59Q"
+    }
+  }
+}

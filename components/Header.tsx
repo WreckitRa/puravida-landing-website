@@ -9,13 +9,17 @@ import packageJson from "../package.json";
 interface HeaderProps {
   showInviteBanner?: boolean;
   className?: string;
+  inviterName?: string; // Optional prop to override localStorage
 }
 
 export default function Header({
   showInviteBanner = true,
   className = "",
+  inviterName,
 }: HeaderProps) {
-  const whoInvited = getWhoInvited();
+  const storedWhoInvited = getWhoInvited();
+  // Use prop if provided, otherwise fall back to localStorage
+  const whoInvited = inviterName || storedWhoInvited;
 
   return (
     <header className={`relative z-10 px-4 pt-6 pb-4 ${className}`}>
