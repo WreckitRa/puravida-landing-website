@@ -50,7 +50,14 @@ export default function UnsubscribePage() {
     }
 
     try {
-      const res = await fetch("/api/public/unsubscribe", {
+      // Call the public backend API directly (not the local Next.js route)
+      let apiBase =
+        process.env.NEXT_PUBLIC_API_URL || "https://api.puravida.events";
+      if (apiBase.startsWith("http://")) {
+        apiBase = apiBase.replace("http://", "https://");
+      }
+
+      const res = await fetch(`${apiBase}/api/public/unsubscribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
